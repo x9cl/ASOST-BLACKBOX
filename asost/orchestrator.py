@@ -8,6 +8,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 from agent_runner import build_agent, ensure_hermes_home  # noqa: F401
+from book_workflow import BookWorkflow
 
 ACCEPT_THRESHOLD = 85
 CHAT_TIMEOUT_S = 300
@@ -164,6 +165,11 @@ class ASOSTOrchestrator:
         if isinstance(val, (dict, list)):
             return val
         return val
+
+    def translate_book(self, extracted_book, segmenter, accept_chapter=None):
+        """تشغيل مسار الكتاب typed من ناتج الاستخراج حتى سياق الفصول."""
+        return BookWorkflow(self._chat).run(
+            extracted_book, segmenter, accept_chapter=accept_chapter)
 
     # ------------------------------------------------------------ pipeline --
     def translate_page(self, page_num, src_text, context=""):
