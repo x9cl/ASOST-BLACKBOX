@@ -11,13 +11,9 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "asost"))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/tests")
 
-from agent_runner import ensure_hermes_home, get_api_key  # noqa: E402
+from agent_runner import ensure_hermes_home  # noqa: E402
 
 ensure_hermes_home()
-if not os.environ.get("OPENROUTER_API_KEY"):
-    k = get_api_key()
-    if k:
-        os.environ["OPENROUTER_API_KEY"] = k
 
 from model_compare import SRC  # noqa: E402
 from orchestrator import ASOSTOrchestrator  # noqa: E402

@@ -69,20 +69,6 @@ def ensure_hermes_home():
     return HERMES_HOME
 
 
-def get_api_key():
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if not key:
-        envf = os.path.join(PROJECT, "assost-main", ".env")
-        try:
-            for line in open(envf):
-                if line.startswith("OPENROUTER_API_KEY="):
-                    key = line.split("=", 1)[1].strip()
-                    break
-        except FileNotFoundError:
-            pass
-    return key
-
-
 def build_agent(agent_name, model="stealth/ox-alpha"):
     """بناء AIAgent لهوية وكيل ASOST من مجلده.
 
@@ -98,14 +84,27 @@ def build_agent(agent_name, model="stealth/ox-alpha"):
         toolsets = ROLE_TOOLSETS.get(role, [])
     system_prompt = ident.get("system_prompt") or ident.get("description", "")
 
+    # Do not resolve or copy credentials here.  This is Hermes' normal runtime
+    # extension point: for OpenRouter it loads ``load_pool("openrouter")``,
+    # selects an available entry and returns that same pool to AIAgent.  Keeping
+    # resolution on this path also keeps leases, rotation and cooldown policy in
+    # Hermes rather than giving ASOST a second credential owner.
+    from hermes_cli.runtime_provider import resolve_runtime_provider  # noqa: E402
     from run_agent import AIAgent  # noqa: E402
 
+    runtime = resolve_runtime_provider(
+        requested="openrouter",
+        target_model=model,
+    )
+
     agent = AIAgent(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=get_api_key(),
+        base_url=runtime.get("base_url"),
+        api_key=runtime.get("api_key"),
         model=model,
-        provider="openrouter",
-        api_mode="chat_completions",
+        provider=runtime.get("provider"),
+        requested_provider=runtime.get("requested_provider", "openrouter"),
+        api_mode=runtime.get("api_mode"),
+        credential_pool=runtime.get("credential_pool"),
         quiet_mode=True,
         ephemeral_system_prompt=system_prompt,
         enabled_toolsets=list(toolsets),
