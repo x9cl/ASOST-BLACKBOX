@@ -1,0 +1,657 @@
+{
+"/opt/data/projects/assost/hermes/tools/annotate_preview_tool.py": [
+1787741087522610122,
+5847,
+true
+],
+"/opt/data/projects/assost/hermes/tools/ansi_strip.py": [
+1787741087522610122,
+5238,
+false
+],
+"/opt/data/projects/assost/hermes/tools/apply_layout_tool.py": [
+1787741087522610122,
+2890,
+true
+],
+"/opt/data/projects/assost/hermes/tools/approval.py": [
+1787741087522610122,
+257676,
+false
+],
+"/opt/data/projects/assost/hermes/tools/asost_tools.py": [
+1787750498476437347,
+5752,
+true
+],
+"/opt/data/projects/assost/hermes/tools/async_delegation.py": [
+1787741087522610122,
+66744,
+false
+],
+"/opt/data/projects/assost/hermes/tools/audio_container.py": [
+1787741087522610122,
+3910,
+false
+],
+"/opt/data/projects/assost/hermes/tools/binary_extensions.py": [
+1787741087522610122,
+2782,
+false
+],
+"/opt/data/projects/assost/hermes/tools/blueprints.py": [
+1787741087522610122,
+12056,
+false
+],
+"/opt/data/projects/assost/hermes/tools/bot_failure_reasons.py": [
+1787741087522610122,
+6319,
+false
+],
+"/opt/data/projects/assost/hermes/tools/bot_mode_dm.py": [
+1787741087522610122,
+29687,
+false
+],
+"/opt/data/projects/assost/hermes/tools/bot_mode_probe.py": [
+1787741087522610122,
+19304,
+false
+],
+"/opt/data/projects/assost/hermes/tools/bot_relay.py": [
+1787741087522610122,
+27228,
+false
+],
+"/opt/data/projects/assost/hermes/tools/browser_camofox.py": [
+1787741087522610122,
+36213,
+false
+],
+"/opt/data/projects/assost/hermes/tools/browser_camofox_state.py": [
+1787741087522610122,
+1588,
+false
+],
+"/opt/data/projects/assost/hermes/tools/browser_cdp_tool.py": [
+1787741087522610122,
+27462,
+true
+],
+"/opt/data/projects/assost/hermes/tools/browser_dialog_tool.py": [
+1787741087522610122,
+5534,
+true
+],
+"/opt/data/projects/assost/hermes/tools/browser_extension_router.py": [
+1787741087522610122,
+10379,
+false
+],
+"/opt/data/projects/assost/hermes/tools/browser_supervisor.py": [
+1787741087522610122,
+63781,
+false
+],
+"/opt/data/projects/assost/hermes/tools/browser_tool.py": [
+1787741087522610122,
+238242,
+true
+],
+"/opt/data/projects/assost/hermes/tools/browser_use_cli.py": [
+1787741087522610122,
+36413,
+true
+],
+"/opt/data/projects/assost/hermes/tools/budget_config.py": [
+1787741087522610122,
+7810,
+false
+],
+"/opt/data/projects/assost/hermes/tools/checkpoint_manager.py": [
+1787741087522610122,
+86108,
+false
+],
+"/opt/data/projects/assost/hermes/tools/clarify_gateway.py": [
+1787741087522610122,
+23594,
+false
+],
+"/opt/data/projects/assost/hermes/tools/clarify_tool.py": [
+1787741087522610122,
+24558,
+true
+],
+"/opt/data/projects/assost/hermes/tools/close_preview_tool.py": [
+1787741087522610122,
+2291,
+true
+],
+"/opt/data/projects/assost/hermes/tools/close_terminal_tool.py": [
+1787741087522610122,
+2463,
+true
+],
+"/opt/data/projects/assost/hermes/tools/code_execution_tool.py": [
+1787741087522610122,
+92757,
+true
+],
+"/opt/data/projects/assost/hermes/tools/computer_use_tool.py": [
+1787741087522610122,
+1318,
+true
+],
+"/opt/data/projects/assost/hermes/tools/credential_files.py": [
+1787741087522610122,
+24148,
+false
+],
+"/opt/data/projects/assost/hermes/tools/cronjob_tools.py": [
+1787741087522610122,
+94475,
+true
+],
+"/opt/data/projects/assost/hermes/tools/daemon_pool.py": [
+1787741087526610156,
+2469,
+false
+],
+"/opt/data/projects/assost/hermes/tools/debug_helpers.py": [
+1787741087526610156,
+3677,
+false
+],
+"/opt/data/projects/assost/hermes/tools/delegate_tool.py": [
+1787741087526610156,
+220959,
+true
+],
+"/opt/data/projects/assost/hermes/tools/delegation_live_log.py": [
+1787741087526610156,
+18191,
+false
+],
+"/opt/data/projects/assost/hermes/tools/delegation_output_schema.py": [
+1787741087526610156,
+5925,
+false
+],
+"/opt/data/projects/assost/hermes/tools/desktop_ui.py": [
+1787741087526610156,
+1426,
+false
+],
+"/opt/data/projects/assost/hermes/tools/discord_tool.py": [
+1787741087526610156,
+40175,
+true
+],
+"/opt/data/projects/assost/hermes/tools/drive_preview_tool.py": [
+1787741087526610156,
+9730,
+true
+],
+"/opt/data/projects/assost/hermes/tools/env_passthrough.py": [
+1787741087526610156,
+9266,
+false
+],
+"/opt/data/projects/assost/hermes/tools/env_probe.py": [
+1787741087526610156,
+15096,
+false
+],
+"/opt/data/projects/assost/hermes/tools/fal_common.py": [
+1787741087526610156,
+7021,
+false
+],
+"/opt/data/projects/assost/hermes/tools/feishu_doc_tool.py": [
+1787741087526610156,
+4507,
+true
+],
+"/opt/data/projects/assost/hermes/tools/feishu_drive_tool.py": [
+1787741087526610156,
+13336,
+true
+],
+"/opt/data/projects/assost/hermes/tools/file_operations.py": [
+1787741087526610156,
+156997,
+false
+],
+"/opt/data/projects/assost/hermes/tools/file_state.py": [
+1787741087526610156,
+12353,
+false
+],
+"/opt/data/projects/assost/hermes/tools/file_tools.py": [
+1787741087526610156,
+130272,
+true
+],
+"/opt/data/projects/assost/hermes/tools/flux3_video_tool.py": [
+1787741087526610156,
+51996,
+true
+],
+"/opt/data/projects/assost/hermes/tools/focus_pane_tool.py": [
+1787741087526610156,
+2232,
+true
+],
+"/opt/data/projects/assost/hermes/tools/fuzzy_match.py": [
+1787741087526610156,
+49571,
+false
+],
+"/opt/data/projects/assost/hermes/tools/homeassistant_tool.py": [
+1787741087526610156,
+18037,
+true
+],
+"/opt/data/projects/assost/hermes/tools/hook_output_spill.py": [
+1787741087526610156,
+8122,
+false
+],
+"/opt/data/projects/assost/hermes/tools/image_generation_tool.py": [
+1787741087526610156,
+84718,
+true
+],
+"/opt/data/projects/assost/hermes/tools/image_source.py": [
+1787741087526610156,
+20679,
+false
+],
+"/opt/data/projects/assost/hermes/tools/interpreter_shutdown.py": [
+1787741087526610156,
+2504,
+false
+],
+"/opt/data/projects/assost/hermes/tools/interrupt.py": [
+1787741087526610156,
+5054,
+false
+],
+"/opt/data/projects/assost/hermes/tools/kanban_tools.py": [
+1787741087526610156,
+98560,
+true
+],
+"/opt/data/projects/assost/hermes/tools/lazy_deps.py": [
+1787741087526610156,
+54603,
+false
+],
+"/opt/data/projects/assost/hermes/tools/managed_tool_gateway.py": [
+1787741087526610156,
+17605,
+false
+],
+"/opt/data/projects/assost/hermes/tools/mcp_dashboard_oauth.py": [
+1787741087526610156,
+5368,
+false
+],
+"/opt/data/projects/assost/hermes/tools/mcp_oauth.py": [
+1787741087526610156,
+84446,
+false
+],
+"/opt/data/projects/assost/hermes/tools/mcp_oauth_manager.py": [
+1787741087526610156,
+40566,
+false
+],
+"/opt/data/projects/assost/hermes/tools/mcp_schema_cache.py": [
+1787741087526610156,
+5275,
+false
+],
+"/opt/data/projects/assost/hermes/tools/mcp_stdio_watchdog.py": [
+1787741087526610156,
+5923,
+false
+],
+"/opt/data/projects/assost/hermes/tools/memory_tool.py": [
+1787741087526610156,
+61966,
+true
+],
+"/opt/data/projects/assost/hermes/tools/microsoft_graph_auth.py": [
+1787741087526610156,
+7932,
+false
+],
+"/opt/data/projects/assost/hermes/tools/microsoft_graph_client.py": [
+1787741087530610188,
+14182,
+false
+],
+"/opt/data/projects/assost/hermes/tools/neutts_synth.py": [
+1787741087530610188,
+3885,
+false
+],
+"/opt/data/projects/assost/hermes/tools/open_preview_tool.py": [
+1787741087530610188,
+3556,
+true
+],
+"/opt/data/projects/assost/hermes/tools/openrouter_client.py": [
+1787741087530610188,
+1529,
+false
+],
+"/opt/data/projects/assost/hermes/tools/osv_check.py": [
+1787741087530610188,
+7404,
+false
+],
+"/opt/data/projects/assost/hermes/tools/patch_parser.py": [
+1787741087530610188,
+30052,
+false
+],
+"/opt/data/projects/assost/hermes/tools/path_security.py": [
+1787741087530610188,
+1311,
+false
+],
+"/opt/data/projects/assost/hermes/tools/plugin_guard.py": [
+1787741087530610188,
+12281,
+false
+],
+"/opt/data/projects/assost/hermes/tools/process_registry.py": [
+1787741087530610188,
+149609,
+true
+],
+"/opt/data/projects/assost/hermes/tools/project_tools.py": [
+1787741087534610220,
+7143,
+true
+],
+"/opt/data/projects/assost/hermes/tools/react_to_message_tool.py": [
+1787741087534610220,
+7136,
+true
+],
+"/opt/data/projects/assost/hermes/tools/read_extract.py": [
+1787741087534610220,
+26155,
+false
+],
+"/opt/data/projects/assost/hermes/tools/read_preview_tool.py": [
+1787741087534610220,
+3472,
+true
+],
+"/opt/data/projects/assost/hermes/tools/read_terminal_tool.py": [
+1787741087534610220,
+3063,
+true
+],
+"/opt/data/projects/assost/hermes/tools/read_window_tool.py": [
+1787741087534610220,
+2710,
+true
+],
+"/opt/data/projects/assost/hermes/tools/schema_sanitizer.py": [
+1787741087534610220,
+29310,
+false
+],
+"/opt/data/projects/assost/hermes/tools/self_repo_guard.py": [
+1787741087534610220,
+23495,
+false
+],
+"/opt/data/projects/assost/hermes/tools/send_message_tool.py": [
+1787741087534610220,
+102847,
+false
+],
+"/opt/data/projects/assost/hermes/tools/session_search_tool.py": [
+1787741087534610220,
+55430,
+true
+],
+"/opt/data/projects/assost/hermes/tools/setup_mcp_tool.py": [
+1787741087534610220,
+5126,
+true
+],
+"/opt/data/projects/assost/hermes/tools/shell_heredoc.py": [
+1787741087534610220,
+13628,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skill_ledger.py": [
+1787741087534610220,
+14168,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skill_linter.py": [
+1787741087534610220,
+16440,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skill_manager_tool.py": [
+1787741087534610220,
+73898,
+true
+],
+"/opt/data/projects/assost/hermes/tools/skill_provenance.py": [
+1787741087534610220,
+2602,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skill_usage.py": [
+1787741087534610220,
+53616,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skillevaluator_scan.py": [
+1787741087534610220,
+9622,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skills_ast_audit.py": [
+1787741087534610220,
+5196,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skills_guard.py": [
+1787741087534610220,
+47758,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skills_hub.py": [
+1787741087534610220,
+183704,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skills_sync.py": [
+1787741087534610220,
+61416,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skills_sync_client.py": [
+1787741087534610220,
+88981,
+false
+],
+"/opt/data/projects/assost/hermes/tools/skills_tool.py": [
+1787741087534610220,
+85473,
+true
+],
+"/opt/data/projects/assost/hermes/tools/slash_confirm.py": [
+1787741087534610220,
+5751,
+false
+],
+"/opt/data/projects/assost/hermes/tools/spill_safety.py": [
+1787741087534610220,
+4206,
+false
+],
+"/opt/data/projects/assost/hermes/tools/subagent_worktree.py": [
+1787741087534610220,
+13363,
+false
+],
+"/opt/data/projects/assost/hermes/tools/terminal_hints.py": [
+1787741087534610220,
+11827,
+false
+],
+"/opt/data/projects/assost/hermes/tools/terminal_tool.py": [
+1787741087534610220,
+184323,
+true
+],
+"/opt/data/projects/assost/hermes/tools/thread_context.py": [
+1787741087534610220,
+4694,
+false
+],
+"/opt/data/projects/assost/hermes/tools/threat_patterns.py": [
+1787741087534610220,
+13986,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tirith_security.py": [
+1787741087534610220,
+34045,
+false
+],
+"/opt/data/projects/assost/hermes/tools/todo_tool.py": [
+1787741087534610220,
+14005,
+true
+],
+"/opt/data/projects/assost/hermes/tools/tool_backend_helpers.py": [
+1787741087534610220,
+16184,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tool_output_limits.py": [
+1787741087534610220,
+3991,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tool_result_storage.py": [
+1787741087534610220,
+17196,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tool_search.py": [
+1787741087534610220,
+43129,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tour_tool.py": [
+1787741087534610220,
+8035,
+true
+],
+"/opt/data/projects/assost/hermes/tools/transcription_tools.py": [
+1787741087534610220,
+139354,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tts_streaming.py": [
+1787741087534610220,
+18544,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tts_text_normalize.py": [
+1787741087534610220,
+12022,
+false
+],
+"/opt/data/projects/assost/hermes/tools/tts_tool.py": [
+1787741087534610220,
+179837,
+true
+],
+"/opt/data/projects/assost/hermes/tools/url_safety.py": [
+1787741087538610253,
+34381,
+false
+],
+"/opt/data/projects/assost/hermes/tools/video_generation_tool.py": [
+1787741087538610253,
+23308,
+true
+],
+"/opt/data/projects/assost/hermes/tools/vision_tools.py": [
+1787741087538610253,
+92179,
+true
+],
+"/opt/data/projects/assost/hermes/tools/voice_client_config.py": [
+1787741087538610253,
+13101,
+false
+],
+"/opt/data/projects/assost/hermes/tools/voice_mode.py": [
+1787741087538610253,
+99377,
+false
+],
+"/opt/data/projects/assost/hermes/tools/wake_word.py": [
+1787741087538610253,
+58662,
+false
+],
+"/opt/data/projects/assost/hermes/tools/web_tools.py": [
+1787741087538610253,
+69722,
+true
+],
+"/opt/data/projects/assost/hermes/tools/website_policy.py": [
+1787741087538610253,
+9844,
+false
+],
+"/opt/data/projects/assost/hermes/tools/working_diff.py": [
+1787741087538610253,
+4719,
+false
+],
+"/opt/data/projects/assost/hermes/tools/write_approval.py": [
+1787741087538610253,
+19412,
+false
+],
+"/opt/data/projects/assost/hermes/tools/x_search_tool.py": [
+1787741087538610253,
+21292,
+true
+],
+"/opt/data/projects/assost/hermes/tools/xai_http.py": [
+1787741087538610253,
+14993,
+false
+],
+"/opt/data/projects/assost/hermes/tools/xai_video_tools.py": [
+1787741087538610253,
+6330,
+true
+],
+"/opt/data/projects/assost/hermes/tools/yuanbao_tools.py": [
+1787741087538610253,
+27415,
+true
+]
+}

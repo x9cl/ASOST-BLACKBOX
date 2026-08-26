@@ -1,0 +1,5 @@
+{"event": "Loaded 9 API keys from environment/.env", "level": "info", "logger": "main", "timestamp": "2026-08-25T13:57:39.728244Z"}
+{"event": "[KeyStatistics] SQLite DB initialized successfully", "level": "info", "logger": "main", "timestamp": "2026-08-25T13:57:39.764043Z"}
+{"event": "Gemini API initialized with 9 keys", "level": "info", "logger": "main", "timestamp": "2026-08-25T13:57:39.769360Z"}
+{"event": "Internal Circuit Breakers initialized: fail_max=5, timeout=300s", "level": "info", "logger": "main", "timestamp": "2026-08-25T13:57:39.771842Z"}
+{"event": "Gemini API resources cleaned up", "level": "info", "logger": "main", "timestamp": "2026-08-25T13:57:39.776408Z"}

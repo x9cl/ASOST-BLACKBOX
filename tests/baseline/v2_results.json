@@ -1,0 +1,23 @@
+{
+ "text_p20": {
+  "chars": 1494,
+  "consistency": {
+   "issues": [],
+   "passed": true
+  }
+ },
+ "text_p27": {
+  "chars": 1601,
+  "consistency": {
+   "issues": [],
+   "passed": true
+  }
+ },
+ "text_p30": {
+  "chars": 1719,
+  "consistency": {
+   "issues": [],
+   "passed": true
+  }
+ }
+}

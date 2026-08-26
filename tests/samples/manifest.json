@@ -1,0 +1,99 @@
+{
+  "text": [
+    {
+      "name": "text_p20",
+      "page": 20,
+      "chars": 1499
+    },
+    {
+      "name": "text_p27",
+      "page": 27,
+      "chars": 1820
+    },
+    {
+      "name": "text_p30",
+      "page": 30,
+      "chars": 1795
+    }
+  ],
+  "mixed": [
+    {
+      "name": "mixed_p20",
+      "page": 20,
+      "chars": 1499,
+      "images": [
+        {
+          "path": "/opt/data/projects/assost/tests/samples/images/mixed_p20_img0.png",
+          "w": 153,
+          "h": 15
+        },
+        {
+          "path": "/opt/data/projects/assost/tests/samples/images/mixed_p20_img1.png",
+          "w": 90,
+          "h": 15
+        },
+        {
+          "path": "/opt/data/projects/assost/tests/samples/images/mixed_p20_img2.png",
+          "w": 90,
+          "h": 15
+        },
+        {
+          "path": "/opt/data/projects/assost/tests/samples/images/mixed_p20_img3.png",
+          "w": 96,
+          "h": 15
+        }
+      ],
+      "flow": [
+        {
+          "bbox": [
+            45.75,
+            110.2017822265625,
+            160.5,
+            121.44686126708984
+          ],
+          "y": 110.2017822265625
+        },
+        {
+          "bbox": [
+            45.75,
+            251.8897705078125,
+            113.25,
+            263.1348571777344
+          ],
+          "y": 251.8897705078125
+        },
+        {
+          "bbox": [
+            45.75,
+            354.5948486328125,
+            113.25,
+            365.8399353027344
+          ],
+          "y": 354.5948486328125
+        },
+        {
+          "bbox": [
+            45.75,
+            499.28155517578125,
+            117.75,
+            510.5266418457031
+          ],
+          "y": 499.28155517578125
+        }
+      ]
+    },
+    {
+      "name": "mixed_p7",
+      "page": 7,
+      "chars": 1000,
+      "images": [
+        {
+          "path": "/opt/data/projects/assost/tests/samples/images/mixed_p7_img0.png",
+          "w": 95,
+          "h": 23
+        }
+      ],
+      "flow": []
+    }
+  ]
+}

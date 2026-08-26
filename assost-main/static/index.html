@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>user@arch: ~/asost</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100;0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="matrix-bg"></canvas>
+    <canvas id="lang-ambient"></canvas>
+    <div class="crt-overlay"></div>
+    <div class="vignette"></div>
+
+    <!-- Hidden data canvases -->
+    <canvas id="apiChart" style="display:none;width:1px;height:1px;"></canvas>
+
+    <!-- POLYBAR -->
+    <header class="polybar">
+        <div class="workspaces">
+            <span class="ws active"><i class="fa-solid fa-server"></i> sys</span>
+            <span class="ws" id="open-queue-ws"><i class="fa-solid fa-layer-group"></i> que</span>
+            <span class="ws" id="open-api-ws"><i class="fa-solid fa-key"></i> api</span>
+            <span class="ws sound-toggle" id="sound-toggle" title="Toggle sound">
+                <i class="fa-solid fa-volume-xmark" id="sound-icon"></i> sfx
+            </span>
+        </div>
+        <div class="window-title">
+            <i class="fa-solid fa-terminal"></i>&nbsp;user@arch:&nbsp;<span class="path">~/asost_dashboard</span>
+        </div>
+        <div class="system-modules">
+            <span class="module polybar-stat"><i class="fa-solid fa-book"></i> <span id="stat-books">1204</span> books</span>
+            <span class="module polybar-stat"><i class="fa-solid fa-file-lines"></i> <span id="stat-pages">452K</span> pgs</span>
+            <span class="module"><i class="fa-solid fa-memory"></i> <span id="ram-display">4.2G/16G</span></span>
+            <span class="module"><i class="fa-solid fa-microchip"></i> <span id="cpu-display">12%</span></span>
+            <span class="module hl-green"><i class="fa-solid fa-network-wired"></i> UP</span>
+            <span class="module" id="clock"></span>
+        </div>
+    </header>
+
+
+    <main class="tiling-layout">
+
+        <!-- ═══ LEFT COL ═══ -->
+        <div class="tile-col left-col">
+
+            <div class="window active-window" id="win-neofetch">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/system</span> <span class="cmd">❯</span> neofetch --asost</span>
+                    <span class="window-controls">
+                        <i class="fa-solid fa-circle" style="color:var(--term-red);font-size:8px"></i>
+                        <i class="fa-solid fa-circle ctrl-max" data-win="win-neofetch" style="color:var(--term-orange);font-size:8px"></i>
+                    </span>
+                </div>
+                <div class="window-content blur-glass" id="billboard-wrap" style="padding:0;overflow:hidden;position:relative;height:240px;">
+                    <canvas id="billboard-canvas" width="300" height="238" style="display:block;width:100%;height:238px;"></canvas>
+                </div>
+            </div>
+
+            <div class="window" id="win-upload">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/upload</span> <span class="cmd">❯</span> ./dropzone <span class="comment">--watch</span></span>
+                    <span class="window-controls">
+                        <i class="fa-solid fa-circle" style="color:var(--term-red);font-size:8px"></i>
+                        <i class="fa-solid fa-circle ctrl-max" data-win="win-upload" style="color:var(--term-orange);font-size:8px"></i>
+                    </span>
+                </div>
+                <div class="window-content upload-zone-term blur-glass" id="drop-zone" style="padding:0!important;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById('file-input').click()">
+                    <canvas id="upload-canvas" style="position:absolute;inset:0;display:block;" width="300" height="160"></canvas>
+                    <input type="file" id="file-input" hidden accept=".pdf">
+                    <div class="queue-preview" style="position:relative;z-index:2;margin-top:auto;">
+                        <div class="queue-preview-header">
+                            <span class="comment">// ACTIVE QUEUE</span>
+                            <button class="term-btn-sm" id="open-queue-btn" onclick="event.stopPropagation()"><i class="fa-solid fa-external-link-alt"></i> MANAGE</button>
+                        </div>
+                        <div id="queue-mini-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ MOSS AMBIENT PANEL ═══ -->
+            <div class="window moss-window" id="win-moss">
+                <div class="moss-frame">
+                    <img src="moss.gif" alt="ambient" class="moss-gif" draggable="false">
+                    <!-- Scanline overlay on the gif -->
+                    <div class="moss-scan"></div>
+                    <!-- Terminal overlay text -->
+                    <div class="moss-overlay-text">
+                        <div class="moss-line"><span class="keyword">env</span> <span class="comment">// ORGANIC_CORE</span></div>
+                        <div class="moss-line"><span class="string">substrate</span><span class="punct">:</span> <span class="number">active</span></div>
+                        <div class="moss-line moss-blink"><span class="log-sys">█ LIVING</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ QURAN AMBIENT PANEL ═══ -->
+            <div class="window quran-window" id="win-quran">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/quran</span> <span class="cmd">❯</span> stream <span class="comment">--live</span></span>
+                    <span class="window-controls">
+                        <i class="fa-solid fa-circle" style="color:var(--term-red);font-size:8px"></i>
+                        <i class="fa-solid fa-circle ctrl-max" data-win="win-quran" style="color:var(--term-orange);font-size:8px"></i>
+                    </span>
+                </div>
+                <div class="quran-frame">
+                    <img src="1sa.gif" alt="quran" class="quran-gif" draggable="false">
+                    <div class="moss-scan"></div>
+                    <div class="quran-overlay-text">
+                        <div class="moss-line"><span class="keyword">src</span> <span class="comment">// QURAN_FEED</span></div>
+                        <div class="moss-line moss-blink"><span class="log-sys">█ STREAMING</span></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ═══ CENTER COL ═══ -->
+        <div class="tile-col center-col">
+
+            <!-- TOP ROW: TPM + Radar -->
+            <div class="tile-row" style="height:215px;flex-shrink:0;">
+                <div class="window" style="flex:2.2;" id="win-tpm">
+                    <div class="window-bar">
+                        <span class="prompt"><span class="path">~/tpm</span> <span class="cmd">❯</span> plot --keys=top3 --live</span>
+                        <span class="window-controls">
+                            <span class="key-legend"></span>
+                            <i class="fa-solid fa-circle ctrl-max" data-win="win-tpm" style="color:var(--term-orange);font-size:8px"></i>
+                        </span>
+                    </div>
+                    <div class="window-content chart-container-term blur-glass" style="height:calc(100% - 28px);padding:6px;position:relative;">
+                        <canvas id="tpmChart"></canvas>
+                        <div class="tpm-limit-label">── LIMIT</div>
+                    </div>
+                </div>
+                <div class="window" style="flex:1;" id="win-radar">
+                    <div class="window-bar">
+                        <span class="prompt"><span class="path">~/dist</span> <span class="cmd">❯</span> radar</span>
+                        <i class="fa-solid fa-circle ctrl-max" data-win="win-radar" style="color:var(--term-orange);font-size:8px"></i>
+                    </div>
+                    <div class="window-content chart-container-term blur-glass" style="height:calc(100% - 28px);padding:4px;">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GANTT -->
+            <div class="window" style="height:180px;flex-shrink:0;" id="win-gantt">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/chapters</span> <span class="cmd">❯</span> timeline --live</span>
+                    <span class="comment" style="font-size:9px;margin-right:6px;">SEQUENTIAL CHAPTER TRANSLATION</span>
+                    <i class="fa-solid fa-circle ctrl-max" data-win="win-gantt" style="color:var(--term-orange);font-size:8px"></i>
+                </div>
+                <div class="window-content blur-glass chapter-timeline-list" id="chapter-timeline-list" style="padding:6px 8px;overflow-y:auto;">
+                </div>
+            </div>
+
+            <!-- ═══ NODE TOPOLOGY — full remaining space ═══ -->
+            <div class="window" style="flex-grow:1;min-height:170px;" id="win-topo">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/topology</span> <span class="cmd">❯</span> netstat --graph --live</span>
+                    <div class="topo-legend">
+                        <span class="topo-leg"><span class="topo-dot" style="background:var(--term-green-bright)"></span>ACTIVE</span>
+                        <span class="topo-leg"><span class="topo-dot" style="background:var(--term-orange)"></span>BUSY</span>
+                        <span class="topo-leg"><span class="topo-dot" style="background:var(--term-red)"></span>DOWN</span>
+                    </div>
+                    <i class="fa-solid fa-circle ctrl-max" data-win="win-topo" style="color:var(--term-orange);font-size:8px"></i>
+                </div>
+                <div style="overflow:hidden;height:calc(100% - 28px);background:var(--bg-window);backdrop-filter:blur(12px);">
+                    <canvas id="topoCanvas"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ═══ RIGHT COL ═══ -->
+        <div class="tile-col right-col">
+
+            <!-- ═══ PIPELINE PROGRESS FLOW ═══ -->
+            <div class="window" style="flex-shrink:0;" id="win-pipeline">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/pipeline</span> <span class="cmd">❯</span> watch --active</span>
+                    <span class="pipeline-file-name" id="pipeline-filename">/* idle */</span>
+                    <i class="fa-solid fa-circle ctrl-max" data-win="win-pipeline" style="color:var(--term-orange);font-size:8px"></i>
+                </div>
+                <div class="window-content blur-glass pipeline-body" id="pipeline-body">
+
+                    <div class="pipeline-stage" id="stage-0">
+                        <div class="stage-inner">
+                            <div class="stage-icon-wrap" id="sicon-0"><i class="fa-solid fa-file-arrow-up"></i></div>
+                            <div class="stage-info">
+                                <div class="stage-name"><span class="stage-num">01</span>&nbsp;EXTRACT &amp; ANALYZE</div>
+                                <div class="stage-bar-wrap"><div class="stage-bar-fill" id="bar-0"></div><div class="stage-shimmer" id="shimmer-0"></div></div>
+                                <div class="stage-meta"><span class="stage-pct" id="pct-0">—</span><span class="stage-status-txt" id="stxt-0">waiting</span></div>
+                            </div>
+                            <div class="stage-dot" id="dot-0"></div>
+                        </div>
+                        <div class="stage-connector" id="conn-0"><div class="conn-pulse" id="pulse-0"></div></div>
+                    </div>
+
+                    <div class="pipeline-stage" id="stage-1">
+                        <div class="stage-inner">
+                            <div class="stage-icon-wrap" id="sicon-1"><i class="fa-solid fa-language"></i></div>
+                            <div class="stage-info">
+                                <div class="stage-name"><span class="stage-num">02</span>&nbsp;TRANSLATE CHAPTERS</div>
+                                <div class="stage-bar-wrap"><div class="stage-bar-fill" id="bar-1"></div><div class="stage-shimmer" id="shimmer-1"></div></div>
+                                <div class="stage-meta"><span class="stage-pct" id="pct-1">—</span><span class="stage-status-txt" id="stxt-1">waiting</span></div>
+                            </div>
+                            <div class="stage-dot" id="dot-1"></div>
+                        </div>
+                        <div class="stage-connector" id="conn-1"><div class="conn-pulse" id="pulse-1"></div></div>
+                    </div>
+
+                    <div class="pipeline-stage" id="stage-2">
+                        <div class="stage-inner">
+                            <div class="stage-icon-wrap" id="sicon-2"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div class="stage-info">
+                                <div class="stage-name"><span class="stage-num">03</span>&nbsp;QUALITY CHECK</div>
+                                <div class="stage-bar-wrap"><div class="stage-bar-fill" id="bar-2"></div><div class="stage-shimmer" id="shimmer-2"></div></div>
+                                <div class="stage-meta"><span class="stage-pct" id="pct-2">—</span><span class="stage-status-txt" id="stxt-2">waiting</span></div>
+                            </div>
+                            <div class="stage-dot" id="dot-2"></div>
+                        </div>
+                        <div class="stage-connector" id="conn-2"><div class="conn-pulse" id="pulse-2"></div></div>
+                    </div>
+
+                    <div class="pipeline-stage" id="stage-3">
+                        <div class="stage-inner">
+                            <div class="stage-icon-wrap" id="sicon-3"><i class="fa-solid fa-list-ol"></i></div>
+                            <div class="stage-info">
+                                <div class="stage-name"><span class="stage-num">04</span>&nbsp;BUILD TOC</div>
+                                <div class="stage-bar-wrap"><div class="stage-bar-fill" id="bar-3"></div><div class="stage-shimmer" id="shimmer-3"></div></div>
+                                <div class="stage-meta"><span class="stage-pct" id="pct-3">—</span><span class="stage-status-txt" id="stxt-3">waiting</span></div>
+                            </div>
+                            <div class="stage-dot" id="dot-3"></div>
+                        </div>
+                        <div class="stage-connector" id="conn-3"><div class="conn-pulse" id="pulse-3"></div></div>
+                    </div>
+
+                    <div class="pipeline-stage" id="stage-4">
+                        <div class="stage-inner">
+                            <div class="stage-icon-wrap" id="sicon-4"><i class="fa-solid fa-file-word"></i></div>
+                            <div class="stage-info">
+                                <div class="stage-name"><span class="stage-num">05</span>&nbsp;ASSEMBLE DOCX</div>
+                                <div class="stage-bar-wrap"><div class="stage-bar-fill" id="bar-4"></div><div class="stage-shimmer" id="shimmer-4"></div></div>
+                                <div class="stage-meta"><span class="stage-pct" id="pct-4">—</span><span class="stage-status-txt" id="stxt-4">waiting</span></div>
+                            </div>
+                            <div class="stage-dot" id="dot-4"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- LOG TERMINAL -->
+            <div class="window log-window" style="flex:1;min-height:0;" id="win-log">
+                <div class="window-bar">
+                    <span class="prompt"><span class="path">~/logs</span> <span class="cmd">❯</span> tail -f system.log</span>
+                    <i class="fa-solid fa-circle ctrl-max" data-win="win-log" style="color:var(--term-orange);font-size:8px"></i>
+                </div>
+                <div class="log-toolbar">
+                    <div class="log-filters">
+                        <button class="log-filter-btn active" data-filter="ALL">ALL</button>
+                        <button class="log-filter-btn" data-filter="sys">SYS</button>
+                        <button class="log-filter-btn" data-filter="warn">WARN</button>
+                        <button class="log-filter-btn" data-filter="err">ERR</button>
+                    </div>
+                    <div class="log-search-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="log-search" class="log-search-input" placeholder="grep...">
+                    </div>
+                    <button class="log-clear-btn" id="log-clear-btn"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <div class="window-content terminal-body-term blur-glass" id="terminal-output"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODALS -->
+    <div class="modal-overlay" id="queue-modal">
+        <div class="modal-window">
+            <div class="window-bar">
+                <span class="prompt"><span class="path">~/queue</span> <span class="cmd">❯</span> ls -la --sort=priority</span>
+                <span class="window-controls modal-close" data-modal="queue-modal"><i class="fa-solid fa-xmark"></i> [ESC]</span>
+            </div>
+            <div class="modal-body blur-glass">
+                <div class="modal-scroll">
+                    <table class="term-table">
+                        <thead><tr><th>ID</th><th>FILENAME</th><th>TYPE</th><th>PROGRESS</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+                        <tbody id="queue-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button class="term-btn primary" id="add-file-queue-btn"><i class="fa-solid fa-plus"></i> ADD FILE</button>
+                    <button class="term-btn" id="clear-done-btn"><i class="fa-solid fa-check-double"></i> CLEAR DONE</button>
+                    <button class="term-btn danger" id="pause-all-btn"><i class="fa-solid fa-pause"></i> PAUSE ALL</button>
+                    <input type="file" id="modal-file-input" hidden accept=".pdf">
+                    <span class="modal-info comment" id="queue-stats-info"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="api-modal">
+        <div class="modal-window" style="max-width:780px;">
+            <div class="window-bar">
+                <span class="prompt"><span class="path">~/api</span> <span class="cmd">❯</span> ./key-monitor --readonly</span>
+                <span class="window-controls modal-close" data-modal="api-modal"><i class="fa-solid fa-xmark"></i> [ESC]</span>
+            </div>
+            <div class="modal-body blur-glass">
+                <div class="modal-scroll">
+                    <table class="term-table">
+                        <thead><tr><th>ALIAS</th><th>KEY (MASKED)</th><th>STATUS</th><th>TPM USED</th><th>LIMIT</th><th>USAGE BAR</th></tr></thead>
+                        <tbody id="api-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <span class="comment">// المفاتيح تُدار يدوياً داخل كود المحرك (PF.py) فقط — هذه القائمة للعرض والمراقبة الحية فقط، لا تعديل من هنا</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+// Billboard — runs at bottom of body, DOM is ready
+(function(){
+    var cv   = document.getElementById('billboard-canvas');
+    var wrap = document.getElementById('billboard-wrap');
+    if(!cv||!wrap) return;
+    var ctx  = cv.getContext('2d');
+
+    // Sync canvas pixel size to container — retry until non-zero
+    function setSize(){
+        var w = wrap.offsetWidth || 300;
+        var h = 238;
+        cv.width  = w;
+        cv.height = h;
+        cv.style.height = h + 'px';
+        syncOff();
+    }
+
+    var PIXEL=3, off=document.createElement('canvas'), oCtx=off.getContext('2d');
+    function syncOff(){
+        off.width  = Math.max(1, Math.ceil(cv.width/PIXEL));
+        off.height = Math.max(1, Math.ceil(cv.height/PIXEL));
+    }
+    setSize();
+    window.addEventListener('resize', setSize);
+
+    var C={
+        dark:'#002000',mid:'#204000',forest:'#406000',
+        bright:'#608000',lime:'#80a000',emerald:'#208040',
+        mint:'#20a040',white:'#e0e0e0',
+        dimtxt:'rgba(128,160,0,0.45)',rain:'rgba(64,96,0,'
+    };
+    var FONT='"JetBrains Mono","Courier New",monospace';
+
+    var LANGS=[
+        {word:'ASOST',     sub:'p r o j e c t', hint:'[ EN ]'},
+        {word:'أسوست',     sub:'م ش ر و ع',      hint:'[ AR ]'},
+        {word:'АСОСТ',     sub:'п р о е к т',    hint:'[ RU ]'},
+        {word:'ASOST',     sub:'プ ロ ジ ェ ク ト', hint:'[ JA ]'},
+        {word:'에이소스트', sub:'프 로 젝 트',     hint:'[ KO ]'},
+        {word:'阿索斯特',  sub:'项  目',           hint:'[ ZH ]'},
+        {word:'آسوست',     sub:'پ ر و ژ ه',      hint:'[ FA ]'},
+        {word:'ASOST',     sub:'p r o j e t',    hint:'[ FR ]'},
+        {word:'ASOST',     sub:'п р о є к т',    hint:'[ UK ]'},
+        {word:'ASOST',     sub:'p r o y e c t o',hint:'[ ES ]'},
+    ];
+    var lIdx=0, lT=0, LHOLD=200;
+
+    var drops=[];
+    function mkDrop(){return{x:Math.random()*off.width,y:Math.random()*off.height,spd:0.4+Math.random()*0.9,len:5+Math.random()*12,a:0.06+Math.random()*0.14};}
+    function initDrops(){drops=[];for(var i=0;i<50;i++)drops.push(mkDrop());}
+    initDrops();
+
+    var ADS=[
+        {txt:'ATARI', sub:'▸ PLAY ON',   col:C.bright,  x:0.72,y:0.10,ph:1.8},
+        {txt:'مترجم',sub:'◈ AI CORE',  col:C.emerald, x:0.04,y:0.10,ph:0.6},
+        {txt:'JOI',   sub:'◉ COMPANION',col:C.mint,    x:0.72,y:0.72,ph:2.7},
+        {txt:'9902',  sub:'◈ MODEL',    col:C.lime,    x:0.04,y:0.72,ph:1.4},
+        {txt:'翻訳',  sub:'新世界',      col:C.forest,  x:0.42,y:0.05,ph:2.1},
+    ];
+
+    var fogs=[];
+    for(var i=0;i<8;i++)fogs.push({x:Math.random(),y:Math.random(),r:0.12+Math.random()*0.22,a:0.020+Math.random()*0.025,dx:(Math.random()-0.5)*0.00008});
+
+    var frame=0,glitch=false,gX=0;
+    function sched(){setTimeout(function(){glitch=true;gX=(Math.random()-0.5)*14;setTimeout(function(){glitch=false;sched();},80+Math.random()*130);},3000+Math.random()*8000);}
+    sched();
+
+    function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+    function br(c,x,y,s,fx,fy){var dx=fx?-s:s,dy=fy?-s:s;c.beginPath();c.moveTo(x+dx,y);c.lineTo(x,y);c.lineTo(x,y+dy);c.stroke();}
+
+    function tick(){
+        frame++;lT++;
+        if(lT>=LHOLD){lT=0;lIdx=(lIdx+1)%LANGS.length;}
+        var fa=1.0;
+        if(lT<20)fa=lT/20; else if(lT>LHOLD-20)fa=(LHOLD-lT)/20;
+
+        var OW=off.width,OH=off.height,W=cv.width,H=cv.height;
+
+        oCtx.fillStyle='rgba(0,10,3,0.91)';oCtx.fillRect(0,0,OW,OH);
+        var atm=oCtx.createLinearGradient(0,0,0,OH);
+        atm.addColorStop(0,'rgba(0,32,8,0.28)');atm.addColorStop(.5,'rgba(0,20,5,0.10)');atm.addColorStop(1,'rgba(0,0,0,0.22)');
+        oCtx.fillStyle=atm;oCtx.fillRect(0,0,OW,OH);
+
+        fogs.forEach(function(f){
+            f.x+=f.dx;if(f.x<-f.r)f.x=1+f.r;if(f.x>1+f.r)f.x=-f.r;
+            var fg=oCtx.createRadialGradient(f.x*OW,f.y*OH,0,f.x*OW,f.y*OH,f.r*OW);
+            fg.addColorStop(0,'rgba(32,64,0,'+f.a+')');fg.addColorStop(1,'rgba(0,0,0,0)');
+            oCtx.fillStyle=fg;oCtx.fillRect(0,0,OW,OH);
+        });
+
+        drops.forEach(function(d){
+            var rg=oCtx.createLinearGradient(d.x,d.y,d.x,d.y+d.len);
+            rg.addColorStop(0,C.rain+d.a*1.5+')');rg.addColorStop(0.5,C.rain+d.a+')');rg.addColorStop(1,C.rain+'0)');
+            oCtx.strokeStyle=rg;oCtx.lineWidth=0.7;
+            oCtx.beginPath();oCtx.moveTo(d.x,d.y);oCtx.lineTo(d.x-0.3,d.y+d.len);oCtx.stroke();
+            d.y+=d.spd;
+            if(d.y>OH+20){var nd=mkDrop();d.x=nd.x;d.y=-15;d.spd=nd.spd;d.a=nd.a;}
+        });
+
+        ADS.forEach(function(ad){
+            var px=ad.x*OW,py=ad.y*OH+Math.sin(frame*0.010+ad.ph)*1.8;
+            var pw=ad.x>0.5?OW*(1-ad.x)-2:OW*0.26;
+            var pulse=0.50+0.28*Math.sin(frame*0.018+ad.ph);
+            oCtx.save();
+            oCtx.globalAlpha=pulse*0.75;oCtx.fillStyle='rgba(0,8,2,0.75)';
+            rr(oCtx,px,py-11,pw,20,2);oCtx.fill();
+            oCtx.fillStyle=ad.col;oCtx.globalAlpha=pulse*0.95;
+            rr(oCtx,px,py-11,pw,2,1);oCtx.fill();
+            oCtx.font='bold 6px '+FONT;oCtx.shadowColor=ad.col;oCtx.shadowBlur=5;
+            oCtx.fillStyle=ad.col;oCtx.fillText(ad.txt,px+3,py-1);
+            oCtx.font='4px '+FONT;oCtx.globalAlpha=pulse*0.50;
+            oCtx.shadowBlur=2;oCtx.fillStyle=C.white;oCtx.fillText(ad.sub,px+3,py+7);
+            oCtx.restore();
+        });
+
+        var sy=(frame*0.30)%OH,scg=oCtx.createLinearGradient(0,sy-4,0,sy+4);
+        scg.addColorStop(0,'rgba(96,128,0,0)');scg.addColorStop(.5,'rgba(96,128,0,0.055)');scg.addColorStop(1,'rgba(96,128,0,0)');
+        oCtx.fillStyle=scg;oCtx.fillRect(0,sy-4,OW,8);
+
+        var cx2=OW/2,cy2=OH*0.50,fs=Math.min(Math.floor(OW*0.20),22);
+        var lang=LANGS[lIdx];
+        var flk=glitch?(Math.random()>.4?1:.12):(0.84+0.16*Math.sin(frame*0.025));
+
+        oCtx.save();
+        oCtx.textAlign='center';oCtx.textBaseline='middle';
+        oCtx.globalAlpha=flk*fa*0.10;oCtx.font='900 '+fs+'px '+FONT;
+        oCtx.fillStyle=C.mid;oCtx.shadowColor=C.mid;oCtx.shadowBlur=28;oCtx.fillText(lang.word,cx2-2,cy2+1);
+        oCtx.fillStyle=C.emerald;oCtx.shadowColor=C.emerald;oCtx.shadowBlur=28;oCtx.fillText(lang.word,cx2+2,cy2-1);
+        oCtx.globalAlpha=flk*fa*0.38;oCtx.fillStyle=C.forest;oCtx.shadowColor=C.forest;oCtx.shadowBlur=14;oCtx.fillText(lang.word,cx2,cy2);
+        oCtx.globalAlpha=flk*fa*0.95;oCtx.fillStyle=C.white;oCtx.shadowColor=C.lime;oCtx.shadowBlur=5;oCtx.fillText(lang.word,cx2,cy2);
+        if(glitch){
+            oCtx.globalAlpha=0.50*fa;oCtx.fillStyle=C.lime;oCtx.shadowColor=C.lime;oCtx.shadowBlur=4;oCtx.fillText(lang.word,cx2+gX,cy2);
+            oCtx.fillStyle=C.emerald;oCtx.shadowColor=C.emerald;oCtx.shadowBlur=4;oCtx.fillText(lang.word,cx2-gX*0.5,cy2);
+        }
+        var sf=Math.max(4,Math.floor(fs*0.30));
+        oCtx.globalAlpha=flk*fa*0.60;oCtx.font='400 '+sf+'px '+FONT;
+        oCtx.shadowColor=C.mint;oCtx.shadowBlur=4;oCtx.fillStyle='rgba(160,220,120,0.80)';oCtx.fillText(lang.sub,cx2,cy2+fs*0.66);
+        oCtx.globalAlpha=flk*fa*0.35;oCtx.font='300 '+(sf-1)+'px '+FONT;
+        oCtx.fillStyle=C.dimtxt;oCtx.shadowBlur=0;oCtx.fillText(lang.hint,cx2,cy2+fs*0.95);
+        var lw2=OW*0.52,ly2=cy2+fs*1.08;
+        var lg=oCtx.createLinearGradient(cx2-lw2/2,0,cx2+lw2/2,0);
+        lg.addColorStop(0,'rgba(128,160,0,0)');lg.addColorStop(0.3,C.bright);lg.addColorStop(0.7,C.emerald);lg.addColorStop(1,'rgba(32,128,64,0)');
+        oCtx.globalAlpha=flk*0.50;oCtx.strokeStyle=lg;oCtx.lineWidth=0.5;
+        oCtx.beginPath();oCtx.moveTo(cx2-lw2/2,ly2);oCtx.lineTo(cx2+lw2/2,ly2);oCtx.stroke();
+        var tf=Math.max(3,Math.floor(fs*0.20));
+        oCtx.globalAlpha=flk*0.32;oCtx.font='300 '+tf+'px '+FONT;
+        oCtx.fillStyle=C.dimtxt;oCtx.shadowBlur=1;oCtx.fillText('AUTOMATED · SMART · OPEN-SOURCE · TRANSLATOR',cx2,ly2+tf*2.4);
+        oCtx.globalAlpha=flk*0.22;oCtx.strokeStyle=C.emerald;oCtx.lineWidth=0.6;oCtx.shadowBlur=3;oCtx.shadowColor=C.emerald;
+        var bx=cx2-fs*2.5,by=cy2-fs*0.85,bw=fs*5.0,bh=fs*1.95;
+        br(oCtx,bx,by,7);br(oCtx,bx+bw,by,7,1,0);br(oCtx,bx,by+bh,7,0,1);br(oCtx,bx+bw,by+bh,7,1,1);
+        oCtx.restore();
+
+        ctx.imageSmoothingEnabled=false;
+        ctx.drawImage(off,0,0,W,H);
+        ctx.save();ctx.globalAlpha=0.045;ctx.strokeStyle='rgba(0,0,0,1)';ctx.lineWidth=0.7;
+        for(var ry=0;ry<H;ry+=PIXEL){ctx.beginPath();ctx.moveTo(0,ry);ctx.lineTo(W,ry);ctx.stroke();}
+        for(var rx=0;rx<W;rx+=PIXEL){ctx.beginPath();ctx.moveTo(rx,0);ctx.lineTo(rx,H);ctx.stroke();}
+        ctx.restore();
+
+        requestAnimationFrame(tick);
+    }
+    tick();
+}());
+
+// Upload zone canvas — billboard style
+(function(){
+    var cv   = document.getElementById('upload-canvas');
+    var wrap = document.getElementById('drop-zone');
+    if(!cv || !wrap) return;
+    var ctx  = cv.getContext('2d');
+
+    function setSize(){
+        var w = wrap.offsetWidth  || 300;
+        var h = wrap.offsetHeight || 160;
+        // Only top portion is canvas, queue sits below
+        var queueH = wrap.querySelector('.queue-preview') ? 60 : 0;
+        cv.width  = w;
+        cv.height = Math.max(h - queueH, 100);
+        cv.style.width  = w + 'px';
+        cv.style.height = cv.height + 'px';
+        syncOff();
+    }
+
+    var PIXEL = 2;
+    var off = document.createElement('canvas'), oCtx = off.getContext('2d');
+    function syncOff(){
+        off.width  = Math.max(1, Math.ceil(cv.width  / PIXEL));
+        off.height = Math.max(1, Math.ceil(cv.height / PIXEL));
+    }
+    setSize();
+    window.addEventListener('resize', function(){ setSize(); initDrops(); });
+
+    var C = {
+        dark:   '#002000', mid:    '#204000', forest: '#406000',
+        bright: '#608000', lime:   '#80a000', emerald:'#208040',
+        white:  '#e0e0e0', rain:   'rgba(64,96,0,', dim: 'rgba(128,160,0,0.40)'
+    };
+    var FONT = '"JetBrains Mono","Courier New",monospace';
+
+    // Floating file-type words in Arabic + others
+    var WORDS = ['PDF','ملف','وثيقة','كتاب','翻訳','файл','파일','文件'];
+    var floaters = [];
+    for(var i = 0; i < 10; i++){
+        floaters.push({
+            txt: WORDS[Math.floor(Math.random()*WORDS.length)],
+            x:   Math.random(), y: Math.random(),
+            a:   0.05+Math.random()*0.10,
+            spd: 0.0005+Math.random()*0.0008,
+            col: Math.random()>0.5 ? C.forest : C.emerald
+        });
+    }
+
+    var drops = [];
+    function mkDrop(){ return { x:Math.random()*off.width, y:Math.random()*off.height, spd:0.3+Math.random()*0.7, len:4+Math.random()*9, a:0.04+Math.random()*0.10 }; }
+    function initDrops(){ drops=[]; for(var i=0;i<35;i++) drops.push(mkDrop()); }
+    initDrops();
+
+    var frame = 0;
+    var dragOver = false;
+    wrap.addEventListener('dragover',  function(e){ e.preventDefault(); dragOver=true;  });
+    wrap.addEventListener('dragleave', function(){ dragOver=false; });
+    wrap.addEventListener('drop',      function(){ dragOver=false; });
+
+    function tick(){
+        frame++;
+        var OW=off.width, OH=off.height, W=cv.width, H=cv.height;
+
+        // ── Background ──────────────────────────────────────────
+        oCtx.fillStyle = dragOver ? 'rgba(0,25,8,0.95)' : 'rgba(0,8,2,0.90)';
+        oCtx.fillRect(0,0,OW,OH);
+
+        // ── Scan beam ───────────────────────────────────────────
+        var sy = (frame*0.18) % OH;
+        var sg = oCtx.createLinearGradient(0,sy-3,0,sy+3);
+        sg.addColorStop(0,'rgba(96,128,0,0)');
+        sg.addColorStop(.5,'rgba(96,128,0,0.07)');
+        sg.addColorStop(1,'rgba(96,128,0,0)');
+        oCtx.fillStyle=sg; oCtx.fillRect(0,sy-3,OW,6);
+
+        // ── Rain ────────────────────────────────────────────────
+        drops.forEach(function(d){
+            var rg=oCtx.createLinearGradient(d.x,d.y,d.x,d.y+d.len);
+            rg.addColorStop(0,C.rain+d.a*1.4+')');
+            rg.addColorStop(0.5,C.rain+d.a+')');
+            rg.addColorStop(1,C.rain+'0)');
+            oCtx.strokeStyle=rg; oCtx.lineWidth=0.6;
+            oCtx.beginPath(); oCtx.moveTo(d.x,d.y); oCtx.lineTo(d.x,d.y+d.len); oCtx.stroke();
+            d.y+=d.spd;
+            if(d.y>OH+10){ var nd=mkDrop(); d.x=nd.x; d.y=-10; d.spd=nd.spd; d.a=nd.a; }
+        });
+
+        // ── Floating words ──────────────────────────────────────
+        floaters.forEach(function(f){
+            f.y -= f.spd;
+            if(f.y < -0.05){ f.y=1.05; f.x=Math.random(); f.txt=WORDS[Math.floor(Math.random()*WORDS.length)]; }
+            var pa = f.a * (0.5 + 0.5*Math.sin(frame*0.018 + f.x*8));
+            oCtx.save();
+            oCtx.globalAlpha=pa;
+            oCtx.font='5px '+FONT;
+            oCtx.fillStyle=f.col;
+            oCtx.fillText(f.txt, f.x*OW, f.y*OH);
+            oCtx.restore();
+        });
+
+        // ── Central UI drawn on canvas ───────────────────────────
+        var cx = OW/2, cy = OH/2;
+
+        // Corner brackets
+        var bw=OW*0.70, bh=OH*0.75, bx=cx-bw/2, by=cy-bh/2, bs=9;
+        var ba = dragOver ? 0.90 : 0.28 + 0.10*Math.sin(frame*0.03);
+        oCtx.save();
+        oCtx.strokeStyle = dragOver ? C.lime : C.emerald;
+        oCtx.lineWidth   = dragOver ? 1.0 : 0.8;
+        oCtx.globalAlpha = ba;
+        oCtx.shadowColor = C.emerald; oCtx.shadowBlur = dragOver ? 8 : 3;
+        // TL
+        oCtx.beginPath(); oCtx.moveTo(bx+bs,by); oCtx.lineTo(bx,by); oCtx.lineTo(bx,by+bs); oCtx.stroke();
+        // TR
+        oCtx.beginPath(); oCtx.moveTo(bx+bw-bs,by); oCtx.lineTo(bx+bw,by); oCtx.lineTo(bx+bw,by+bs); oCtx.stroke();
+        // BL
+        oCtx.beginPath(); oCtx.moveTo(bx,by+bh-bs); oCtx.lineTo(bx,by+bh); oCtx.lineTo(bx+bs,by+bh); oCtx.stroke();
+        // BR
+        oCtx.beginPath(); oCtx.moveTo(bx+bw-bs,by+bh); oCtx.lineTo(bx+bw,by+bh); oCtx.lineTo(bx+bw,by+bh-bs); oCtx.stroke();
+        oCtx.restore();
+
+        // Center line decorations
+        oCtx.save();
+        oCtx.globalAlpha = 0.18 + 0.06*Math.sin(frame*0.04);
+        var lg = oCtx.createLinearGradient(bx, 0, bx+bw, 0);
+        lg.addColorStop(0,'rgba(32,128,64,0)'); lg.addColorStop(0.5,C.emerald); lg.addColorStop(1,'rgba(32,128,64,0)');
+        oCtx.strokeStyle=lg; oCtx.lineWidth=0.5;
+        oCtx.beginPath(); oCtx.moveTo(bx,cy); oCtx.lineTo(bx+bw,cy); oCtx.stroke();
+        oCtx.restore();
+
+        // Main text
+        var flk = dragOver ? 1.0 : 0.75 + 0.25*Math.sin(frame*0.04);
+        oCtx.save();
+        oCtx.textAlign='center'; oCtx.textBaseline='middle';
+
+        var fs = Math.min(Math.floor(OW*0.115), 13);
+
+        // Title
+        oCtx.globalAlpha = flk * 0.95;
+        oCtx.font = '700 '+fs+'px '+FONT;
+        oCtx.shadowColor = dragOver ? C.lime : C.emerald;
+        oCtx.shadowBlur  = dragOver ? 10 : 5;
+        oCtx.fillStyle   = dragOver ? C.lime : C.white;
+        oCtx.fillText(dragOver ? '[ RELEASE TO UPLOAD ]' : '[ DROP FILE HERE ]', cx, cy - fs*0.9);
+
+        // Subtitle
+        oCtx.globalAlpha = flk * 0.45;
+        oCtx.font = '400 '+(fs*0.72|0)+'px '+FONT;
+        oCtx.shadowBlur = 2;
+        oCtx.fillStyle  = C.bright;
+        oCtx.fillText('PDF ONLY', cx, cy + fs*0.5);
+
+        // Hint blink
+        if((frame % 80) < 50){
+            oCtx.globalAlpha = flk * 0.30;
+            oCtx.font = '300 '+(fs*0.62|0)+'px '+FONT;
+            oCtx.fillStyle = C.dim;
+            oCtx.fillText('>_ click to browse', cx, cy + fs*1.6);
+        }
+
+        oCtx.restore();
+
+        // ── Pixelate ────────────────────────────────────────────
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, W, H);
+
+        // LED grid lines
+        ctx.save();
+        ctx.globalAlpha = 0.04;
+        ctx.strokeStyle = 'rgba(0,0,0,1)'; ctx.lineWidth = 0.5;
+        for(var ry=0; ry<H; ry+=PIXEL){ ctx.beginPath(); ctx.moveTo(0,ry); ctx.lineTo(W,ry); ctx.stroke(); }
+        ctx.restore();
+
+        requestAnimationFrame(tick);
+    }
+    tick();
+}());
+
+// Ambient multilingual background
+(function(){
+    var cv=document.getElementById('lang-ambient');
+    if(!cv)return;
+    var ctx=cv.getContext('2d');
+    function resize(){cv.width=window.innerWidth;cv.height=window.innerHeight;}
+    resize();window.addEventListener('resize',resize);
+    var WORDS=['ترجمة','翻訳','번역','перевод','Übersetzung','traduction','traducción','مترجم','自動','プロジェクト','проект','项目','مشروع','ASOST','أسوست','阿索斯特','에이소스트','АСОСТ','تلقائي','automated','자동화','ذكاء','知能','지능','كتاب','書','책'];
+    var parts=[];
+    function spawn(){parts.push({word:WORDS[Math.floor(Math.random()*WORDS.length)],x:Math.random()*cv.width,y:Math.random()*cv.height,size:7+Math.random()*8,alpha:0.0,maxA:0.022+Math.random()*0.030,state:'in',holdT:0,maxHold:150+Math.random()*220,dx:(Math.random()-0.5)*0.06,dy:-0.05-Math.random()*0.07,col:Math.random()>0.55?'rgba(96,128,0,':'rgba(32,128,64,'});}
+    for(var i=0;i<20;i++){spawn();parts[i].alpha=Math.random()*parts[i].maxA;parts[i].state='hold';parts[i].holdT=Math.floor(Math.random()*parts[i].maxHold);}
+    var fr=0,FONT='"JetBrains Mono",monospace';
+    function tick(){
+        fr++;ctx.clearRect(0,0,cv.width,cv.height);
+        if(fr%60===0&&parts.length<28)spawn();
+        var alive=[];
+        parts.forEach(function(p){
+            if(p.state==='in'){p.alpha+=0.0007;if(p.alpha>=p.maxA){p.alpha=p.maxA;p.state='hold';}}
+            else if(p.state==='hold'){p.holdT++;if(p.holdT>=p.maxHold)p.state='out';}
+            else{p.alpha-=0.0005;if(p.alpha<=0)return;}
+            p.x+=p.dx;p.y+=p.dy;
+            ctx.save();ctx.globalAlpha=p.alpha;ctx.font=p.size+'px '+FONT;
+            ctx.fillStyle=p.col+p.alpha+')';ctx.fillText(p.word,p.x,p.y);ctx.restore();
+            alive.push(p);
+        });
+        parts=alive;requestAnimationFrame(tick);
+    }
+    tick();
+}());
+    </script>
+</body>
+</html>

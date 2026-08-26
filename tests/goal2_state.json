@@ -1,0 +1,18 @@
+{
+ "metrics": {
+  "raw_chars": 34613,
+  "extracted_chars": 34845,
+  "hyphen_joins": 0,
+  "chapters": 2,
+  "illustrations": 7,
+  "retention": 1.007
+ },
+ "applied": [
+  "helper exists"
+ ],
+ "test": {
+  "before": 47,
+  "after": 0,
+  "blocks": 187
+ }
+}

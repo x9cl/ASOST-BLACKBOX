@@ -1,0 +1,25 @@
+{"event": "Loaded 9 API keys from environment/.env", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.337899Z"}
+{"event": "[KeyStatistics] SQLite DB initialized successfully", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.361475Z"}
+{"event": "Gemini API initialized with 9 keys", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.364284Z"}
+{"event": "Internal Circuit Breakers initialized: fail_max=5, timeout=300s", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.365546Z"}
+{"event": "[CompletionGuarantee] Starting for text of 1499 chars", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.368256Z"}
+{"event": "Text analysis: Genre=prose, Tone=melancholic", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.369751Z"}
+{"event": "Sending complete_translation request (attempt 1) key=AQ.Ab8RN6I... maxTokens=16384 topK=20 topP=0.9", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:11.547454Z"}
+{"event": "Request complete_translation succeeded | key=AQ.Ab8RN6I... | time=23.20s | finishReason=STOP", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.749591Z"}
+{"event": "[Terms] ⑥ Extracted 3 terms inline (no extra API call) | total_db=3", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.751817Z"}
+{"event": "[CompletionGuarantee] Initial done — checking coverage...", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.754329Z"}
+{"event": "[CompletionGuarantee] ✅ Initial translation clean (coverage=91.6%)", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.757647Z"}
+{"event": "[CompletionGuarantee] Starting for text of 1800 chars", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.761879Z"}
+{"event": "Text analysis: Genre=prose, Tone=dramatic", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.763383Z"}
+{"event": "Sending complete_translation request (attempt 1) key=AQ.Ab8RN6K... maxTokens=16384 topK=20 topP=0.9", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:34.765699Z"}
+{"event": "Request complete_translation succeeded | key=AQ.Ab8RN6K... | time=16.69s | finishReason=STOP", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:51.451205Z"}
+{"event": "[CompletionGuarantee] Initial done — checking coverage...", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:51.452967Z"}
+{"event": "[CompletionGuarantee] ✅ Initial translation clean (coverage=83.7%)", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:51.455956Z"}
+{"event": "[CompletionGuarantee] Starting for text of 1795 chars", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:51.458702Z"}
+{"event": "Text analysis: Genre=prose, Tone=melancholic", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:51.460141Z"}
+{"event": "Sending complete_translation request (attempt 1) key=AQ.Ab8RN6I... maxTokens=16384 topK=20 topP=0.9", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:00:51.461986Z"}
+{"event": "Request complete_translation succeeded | key=AQ.Ab8RN6I... | time=18.00s | finishReason=STOP", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:01:09.458377Z"}
+{"event": "[Terms] ⑥ Extracted 3 terms inline (no extra API call) | total_db=6", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:01:09.459900Z"}
+{"event": "[CompletionGuarantee] Initial done — checking coverage...", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:01:09.461199Z"}
+{"event": "[CompletionGuarantee] ✅ Initial translation clean (coverage=82.4%)", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:01:09.463034Z"}
+{"event": "Gemini API resources cleaned up", "level": "info", "logger": "main", "timestamp": "2026-08-26T10:01:09.466094Z"}

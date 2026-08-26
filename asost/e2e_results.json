@@ -1,0 +1,55 @@
+{
+  "pages_requested": [
+    7,
+    8,
+    9
+  ],
+  "total_secs": 771.5,
+  "pages": [
+    {
+      "page": 7,
+      "decision": "accepted",
+      "light_score": 88,
+      "deep_score": 88,
+      "best_score": null,
+      "revision_rounds": 0,
+      "light_verdict": {
+        "score": 88
+      },
+      "src_chars": 1010,
+      "translation_chars": 907,
+      "gemini_chars": 879,
+      "secs": 218.8
+    },
+    {
+      "page": 8,
+      "decision": "accepted",
+      "light_score": 88,
+      "deep_score": 68,
+      "best_score": null,
+      "revision_rounds": 1,
+      "light_verdict": {
+        "score": 88
+      },
+      "src_chars": 1556,
+      "translation_chars": 1461,
+      "gemini_chars": 1366,
+      "secs": 264.6
+    },
+    {
+      "page": 9,
+      "decision": "accepted",
+      "light_score": 88,
+      "deep_score": 66,
+      "best_score": null,
+      "revision_rounds": 1,
+      "light_verdict": {
+        "score": 88
+      },
+      "src_chars": 1766,
+      "translation_chars": 1509,
+      "gemini_chars": 1645,
+      "secs": 288.1
+    }
+  ]
+}

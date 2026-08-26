@@ -1,0 +1,15 @@
+{
+  "default": {
+    "max_rpm": 2,
+    "max_tpm": 32000,
+    "max_rpd": 50
+  },
+  "adaptive": {
+    "enabled": true,
+    "min_rpm_floor": 1,
+    "error_threshold_per_hour": 3,
+    "reduction_factor": 0.5,
+    "recovery_factor": 0.1
+  },
+  "keys": {}
+}

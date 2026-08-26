@@ -1,0 +1,32 @@
+{
+ "pages": 29,
+ "illustration_pages": 6,
+ "inline_images": 0,
+ "missing_translations": [],
+ "sizes": [
+  {
+   "img": "p2_x39.png",
+   "frac": 1.0
+  },
+  {
+   "img": "p3_x43.png",
+   "frac": 1.0
+  },
+  {
+   "img": "p4_x47.png",
+   "frac": 1.0
+  },
+  {
+   "img": "p5_x51.png",
+   "frac": 1.0
+  },
+  {
+   "img": "p6_x55.png",
+   "frac": 1.0
+  },
+  {
+   "img": "p24_x170.png",
+   "frac": 1.0
+  }
+ ]
+}

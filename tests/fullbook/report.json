@@ -1,0 +1,18 @@
+{
+ "pages_translated": 23,
+ "total_chars": 32213,
+ "time_seconds": 312,
+ "consistency_passed": true,
+ "name_presence": {
+  "ساتو": 4,
+  "زينا": 0,
+  "ليزا": 0,
+  "سوزوكي": 4
+ },
+ "docx_stats": {
+  "images_inserted": 0,
+  "images_missing": 0,
+  "paragraphs": 213
+ },
+ "pdf_bytes": 1507874
+}

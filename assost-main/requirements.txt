@@ -1,0 +1,17 @@
+# --- متطلبات محرك الترجمة الأصلي PF.py (كما هي، بدون تعديل) ---
+aiohttp>=3.9
+PyPDF2>=3.0
+python-docx>=1.1
+structlog>=24.1
+pybreaker>=1.2
+rich>=13.7
+
+# --- طبقات استخراج اختيارية يستخدمها PF.py تلقائياً إن وُجدت (soft deps) ---
+PyMuPDF>=1.23      # fitz — استخراج نصوص PDF عالي الجودة (الطبقة الأولى)
+tiktoken>=0.7       # تقدير التوكنز الدقيق (اختياري، يوجد fallback تقريبي بدونه)
+
+# --- طبقة سيرفر الداشبورد (server.py) ---
+fastapi>=0.111
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9   # مطلوب لرفع الملفات (UploadFile)
+psutil>=5.9

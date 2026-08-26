@@ -1,0 +1,63 @@
+{
+ "original_illustrations": 7,
+ "all_present": true,
+ "no_duplicates": true,
+ "details": [
+  {
+   "orig_page": 1,
+   "present": true,
+   "output_pages": [
+    1
+   ],
+   "exactly_once": true
+  },
+  {
+   "orig_page": 2,
+   "present": true,
+   "output_pages": [
+    3
+   ],
+   "exactly_once": true
+  },
+  {
+   "orig_page": 3,
+   "present": true,
+   "output_pages": [
+    4
+   ],
+   "exactly_once": true
+  },
+  {
+   "orig_page": 4,
+   "present": true,
+   "output_pages": [
+    5
+   ],
+   "exactly_once": true
+  },
+  {
+   "orig_page": 5,
+   "present": true,
+   "output_pages": [
+    6
+   ],
+   "exactly_once": true
+  },
+  {
+   "orig_page": 6,
+   "present": true,
+   "output_pages": [
+    7
+   ],
+   "exactly_once": true
+  },
+  {
+   "orig_page": 24,
+   "present": true,
+   "output_pages": [
+    30
+   ],
+   "exactly_once": true
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+{
+  "text_p20": {
+    "source_chars": 1505,
+    "translated_chars": 1541,
+    "quality_score": 11.710275650024414
+  },
+  "text_p27": {
+    "source_chars": 1827,
+    "translated_chars": 1652,
+    "quality_score": 13.953815937042236
+  },
+  "text_p30": {
+    "source_chars": 1803,
+    "translated_chars": 1639,
+    "quality_score": 13.041332483291626
+  }
+}

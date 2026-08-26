@@ -1,0 +1,29 @@
+{
+  "text_p20": {
+    "arabic_ratio": 0.795,
+    "leftover_english": [],
+    "number_preservation": 1.0,
+    "length_ratio": 0.96,
+    "dialogue_preservation": 1.0,
+    "paragraph_alignment": 0.88,
+    "score_100": 98
+  },
+  "text_p27": {
+    "arabic_ratio": 0.797,
+    "leftover_english": [],
+    "number_preservation": 1.0,
+    "length_ratio": 0.88,
+    "dialogue_preservation": 1.0,
+    "paragraph_alignment": 0.88,
+    "score_100": 98
+  },
+  "text_p30": {
+    "arabic_ratio": 0.805,
+    "leftover_english": [],
+    "number_preservation": 1.0,
+    "length_ratio": 0.99,
+    "dialogue_preservation": 1.0,
+    "paragraph_alignment": 0.89,
+    "score_100": 98
+  }
+}
