@@ -17,6 +17,96 @@ JSON_ONLY_RULE = ('أعد إجابتك كـ JSON واحد فقط بهذا الش
                   '{"score": <0-100>, "notes": [...]}. لا نص قبل أو بعد.')
 
 MAX_REVISION_ROUNDS = 3
+SEGMENT_CHAR_LIMIT = 1800
+
+
+def _split_paragraphs(text):
+    """Return non-empty paragraphs without losing dialogue line boundaries."""
+    return [part.strip() for part in re.split(r"\n\s*\n", str(text))
+            if part.strip()]
+
+
+def _segment_source(text, limit=SEGMENT_CHAR_LIMIT):
+    """Split at paragraph boundaries, then dialogue/sentence boundaries.
+
+    Every returned unit fits the critic budget.  A single over-sized paragraph
+    is split on newlines (important for dialogue), then sentences, and only as
+    a last resort at a whitespace boundary.
+    """
+    def split_long(block):
+        if len(block) <= limit:
+            return [block]
+        units = [u.strip() for u in re.split(
+            r"(?<=\n)|(?<=[.!?؟!؛])\s+", block) if u.strip()]
+        result, current = [], ""
+        for unit in units:
+            while len(unit) > limit:
+                cut = unit.rfind(" ", 0, limit + 1)
+                cut = cut if cut > 0 else limit
+                prefix, unit = unit[:cut].strip(), unit[cut:].strip()
+                if current:
+                    result.append(current)
+                    current = ""
+                result.append(prefix)
+            candidate = f"{current}\n{unit}" if current else unit
+            if len(candidate) <= limit:
+                current = candidate
+            else:
+                result.append(current)
+                current = unit
+        if current:
+            result.append(current)
+        return result
+
+    chunks, current = [], ""
+    for paragraph in _split_paragraphs(text):
+        for unit in split_long(paragraph):
+            candidate = f"{current}\n\n{unit}" if current else unit
+            if len(candidate) <= limit:
+                current = candidate
+            else:
+                chunks.append(current)
+                current = unit
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+_IMAGE_RE = re.compile(
+    r"\[IMG:[^\]]+\]|\[\[(?:IMAGE|IMG)[^\]]*\]\]|<image\b[^>]*>|!\[[^\]]*\]\([^)]*\)",
+    re.IGNORECASE)
+_PROTECTED_NAME_RE = re.compile(
+    r"\{\{(?:NAME|PROTECTED):[^}]+\}\}|\[\[(?:NAME|PROTECTED):[^\]]+\]\]",
+    re.IGNORECASE)
+
+
+def _normalise_digits(value):
+    return str(value).translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
+
+
+def _deterministic_checks(source, translation):
+    """Cheap, deterministic completeness checks over the *entire* page."""
+    source, translation = str(source), str(translation)
+    src_paras, dst_paras = _split_paragraphs(source), _split_paragraphs(translation)
+    src_len = len(re.sub(r"\s+", "", source))
+    dst_len = len(re.sub(r"\s+", "", translation))
+    ratio = dst_len / max(src_len, 1)
+    prose = _PROTECTED_NAME_RE.sub("", _IMAGE_RE.sub("", translation))
+    english = re.findall(r"\b[A-Za-z]{3,}\b", prose)
+    checks = {
+        "paragraph_coverage": len(dst_paras) >= len(src_paras),
+        "english_remaining": len(english) <= max(2, src_len // 500),
+        "normal_length": 0.45 <= ratio <= 2.5,
+        "image_markers": _IMAGE_RE.findall(source) == _IMAGE_RE.findall(translation),
+        "numbers": re.findall(r"\d+(?:[.,]\d+)*", _normalise_digits(source))
+                   == re.findall(r"\d+(?:[.,]\d+)*", _normalise_digits(translation)),
+        "protected_names": _PROTECTED_NAME_RE.findall(source)
+                           == _PROTECTED_NAME_RE.findall(translation),
+    }
+    return {"passed": all(checks.values()), "checks": checks,
+            "source_paragraphs": len(src_paras),
+            "translation_paragraphs": len(dst_paras),
+            "length_ratio": round(ratio, 3), "english_words": english}
 
 
 def _extract_json(text):
@@ -179,105 +269,91 @@ class ASOSTOrchestrator:
             raise ValueError(
                 f"translate_page: src_text أقصر من 50 حرفاً "
                 f"({len(src_text)}) — رفض مبكر.")
-        print(f"[orchestrator] page {page_num}: translating ({len(src_text)} chars)...")
-        translation = self._chat(
+        segments = _segment_source(src_text)
+        print(f"[orchestrator] page {page_num}: translating ({len(src_text)} chars, "
+              f"{len(segments)} segments)...")
+        translated_segments = [self._chat(
             "translator",
-            f"Translate to literary Arabic:\n\n{src_text}",
-        ).strip()
+            "Translate this complete segment to literary Arabic. Preserve every "
+            "paragraph, dialogue line, number, protected name and image marker.\n\n"
+            f"{segment}",
+        ).strip() for segment in segments]
+        translation = "\n\n".join(translated_segments)
 
-        print("[orchestrator] critic_light reviewing...")
-        raw = self._chat(
-            "critic_light",
-            "قيّم هذه الترجمة. " + JSON_ONLY_RULE + "\n\n"
-            f"ORIGINAL:\n{src_text[:2000]}\n\nTRANSLATION:\n{translation[:3000]}",
-        )
-        light = _extract_json(raw) or {}
-        score = _extract_score(light)
-        if score is None:
-            # fallback: أي "score" رقمي داخل النص الخام
-            m = re.search(r'"?(?:overall_)?score"?\s*[:=]\s*([\d.]+)', raw)
-            if m:
-                v = float(m.group(1))
-                score = int(round(v * 10 if v <= 10 else v))
-
+        validation = _deterministic_checks(src_text, translation)
         decision = {"page": page_num, "translation": translation,
-                    "light": light, "light_score": score}
+                    "segments": len(segments), "validation": validation,
+                    "revision_rounds": 0}
+        if not validation["passed"]:
+            decision.update({"light": {}, "light_score": None,
+                             "decision": "rejected"})
+            print("[orchestrator] deterministic full-page gate → REJECTED")
+            self.save_state(f"page_{page_num}_result",
+                            {k: v for k, v in decision.items()
+                             if k != "translation"})
+            return decision
+
+        print("[orchestrator] critic_light reviewing every complete segment...")
+        light_reviews, light_scores = [], []
+        for source_segment, translated_segment in zip(segments, translated_segments):
+            raw = self._chat(
+                "critic_light", "قيّم القطعة الكاملة التالية. " + JSON_ONLY_RULE
+                + f"\n\nORIGINAL:\n{source_segment}\n\nTRANSLATION:\n{translated_segment}")
+            review = _extract_json(raw) or {}
+            light_reviews.append(review)
+            found = _extract_score(review)
+            if found is None:
+                m = re.search(r'"?(?:overall_)?score"?\s*[:=]\s*([\d.]+)', raw)
+                if m:
+                    value = float(m.group(1))
+                    found = int(round(value * 10 if value <= 10 else value))
+            light_scores.append(found)
+        light = light_reviews[0] if len(light_reviews) == 1 else {"segments": light_reviews}
+        score = min(light_scores) if all(s is not None for s in light_scores) else None
+        decision.update({"light": light, "light_score": score,
+                         "segment_light_scores": light_scores})
 
         if score is not None and score >= ACCEPT_THRESHOLD:
             decision["decision"] = "accepted"
             print(f"[orchestrator] score={score} >= {ACCEPT_THRESHOLD} → ACCEPTED")
+            self.save_state(f"page_{page_num}_result",
+                            {k: v for k, v in decision.items()
+                             if k != "translation"})
+            return decision
         else:
             print(f"[orchestrator] score={score} < {ACCEPT_THRESHOLD} "
                   f"→ escalating to critic_deep...")
 
-        # ------------------------------------------------- deep review loop --
-        decision["revision_rounds"] = 0
-        round_scores = [score] if score is not None else []
-        best = {"translation": translation, "score": score if score is not None else -1}
-        rounds = 0
-        while True:
+        # Map/reduce: no aggregate verdict can hide a bad tail segment.  The
+        # reducer is deliberately the minimum score and requires every map
+        # result to be parseable and above the threshold.
+        print("[orchestrator] critic_deep reviewing every complete segment...")
+        deep_reviews, deep_scores = [], []
+        for source_segment, translated_segment in zip(segments, translated_segments):
             raw_d = self._chat(
                 "critic_deep",
-                "قيّم هذه الترجمة أدبياً. " + JSON_ONLY_RULE + "\n\n"
-                f"ORIGINAL:\n{src_text[:2000]}\n\nTRANSLATION:\n{decision['translation'][:3000]}",
-            )
+                "قيّم القطعة الكاملة التالية أدبياً. " + JSON_ONLY_RULE
+                + f"\n\nORIGINAL:\n{source_segment}"
+                  f"\n\nTRANSLATION:\n{translated_segment}")
             deep = _extract_json(raw_d) or {}
-            decision["deep"] = deep
-            dscore = _extract_score(deep)
-            if dscore is not None:
-                decision["deep_score"] = dscore
-                round_scores.append(dscore)
-                if dscore > best["score"]:
-                    best = {"translation": decision["translation"], "score": dscore}
-            if dscore is not None and dscore >= ACCEPT_THRESHOLD:
-                decision["decision"] = "accepted"
-                print(f"[orchestrator] deep verdict → accepted ({dscore})")
-                break
-            # rejected (أو بلا درجة قابلة للاستخراج) → جولة مراجعة عبر reviser
-            if rounds >= MAX_REVISION_ROUNDS:
-                decision["translation"] = best["translation"]
-                decision["best_score"] = max(round_scores) if round_scores else None
-                decision["decision"] = "best_effort"
-                print(f"[orchestrator] max revision rounds ({MAX_REVISION_ROUNDS}) "
-                      f"reached → best_effort (best score={decision['best_score']})")
-                break
-            rounds += 1
-            decision["revision_rounds"] = rounds
-            notes = self._critic_notes(deep, raw_d)
-            print(f"[orchestrator] rejected (deep score={dscore}) → "
-                  f"revision round {rounds}/{MAX_REVISION_ROUNDS} via reviser...")
-            revised = self._chat(
-                "reviser",
-                "صحّح المسودة الأدبية التالية حلّاً كل ملاحظة من ملاحظات الناقد "
-                "بدون تغيير المعنى. أعد النص العربي المصحح فقط بدون أي شرح.\n\n"
-                f"ORIGINAL:\n{src_text[:2000]}\n\n"
-                f"DRAFT:\n{decision['translation'][:3000]}\n\n"
-                f"CRITIC NOTES:\n{notes}",
-            ).strip()
-            if revised:
-                decision["translation"] = revised
-            # إعادة التقييم: ناقد خفيف ثم عميق إن لزم
-            print("[orchestrator] critic_light re-reviewing revised draft...")
-            raw_l2 = self._chat(
-                "critic_light",
-                "قيّم هذه الترجمة. " + JSON_ONLY_RULE + "\n\n"
-                f"ORIGINAL:\n{src_text[:2000]}\n\n"
-                f"TRANSLATION:\n{decision['translation'][:3000]}",
-            )
-            light2 = _extract_json(raw_l2) or {}
-            s2 = _extract_score(light2)
-            decision["light"] = light2
-            if s2 is not None:
-                round_scores.append(s2)
-                if s2 > best["score"]:
-                    best = {"translation": decision["translation"], "score": s2}
-                if s2 >= ACCEPT_THRESHOLD:
-                    decision["light_score"] = s2
-                    decision["decision"] = "accepted"
-                    print(f"[orchestrator] revised draft accepted by light critic ({s2})")
-                    break
-            print(f"[orchestrator] light re-review score={s2} < {ACCEPT_THRESHOLD} "
-                  f"→ back to critic_deep")
+            deep_reviews.append(deep)
+            deep_scores.append(_extract_score(deep))
+        dscore = min(deep_scores) if all(
+            item is not None for item in deep_scores) else None
+        decision["deep"] = (deep_reviews[0] if len(deep_reviews) == 1
+                            else {"segments": deep_reviews})
+        decision["segment_deep_scores"] = deep_scores
+        decision["deep_score"] = dscore
+        if dscore is not None and dscore >= ACCEPT_THRESHOLD:
+            decision["decision"] = "accepted"
+            print(f"[orchestrator] all deep segment verdicts accepted ({dscore})")
+        else:
+            decision["decision"] = "best_effort"
+            decision["best_score"] = max(
+                [item for item in [score, dscore] if item is not None],
+                default=None)
+            print("[orchestrator] one or more deep segment verdicts failed "
+                  "→ best_effort")
 
         # حفظ الحالة في الذاكرة التراكمية
         self.save_state(
