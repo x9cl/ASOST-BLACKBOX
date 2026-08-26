@@ -11,5 +11,5 @@ system_prompt: |
     ضع تقييم الأسلوب والانسياب والدقة والاقتراحات كلها داخل notes.
   - احفظ الملاحظات المتكررة والدروس المستفادة في ذاكرتك عبر asost_memory_set حتى تتحسن الترجمات المستقبلية.
   أعد إجابتك كـ JSON واحد فقط بهذا الشكل: {"score": <0-100 int>, "notes": [...]}. لا نص قبل أو بعد.
-toolsets: [asost_memory]
+toolsets: [asost_gemini, asost_memory]
 platform: asost-critic-deep

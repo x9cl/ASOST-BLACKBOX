@@ -7,10 +7,12 @@ build_agent(agent_name) يقرأ identity.yaml من مجلد الوكيل ويب
 import os
 import sys
 
+from asost.config import settings
+
 ASOST_ROOT = os.path.dirname(os.path.abspath(__file__))
-PROJECT = os.path.dirname(ASOST_ROOT)
+PROJECT = str(settings.project_root)
 HERMES = os.path.join(PROJECT, "hermes")
-HERMES_HOME = os.path.join(PROJECT, "hermes-home")
+HERMES_HOME = str(settings.hermes_home)
 AGENTS_DIR = os.path.join(ASOST_ROOT, "agents")
 
 if HERMES not in sys.path:
@@ -18,11 +20,12 @@ if HERMES not in sys.path:
 
 # Toolsets حسب دور الوكيل (افتراضي؛ يمكن تجاوزه من identity.yaml)
 ROLE_TOOLSETS = {
-    "translator": ["asost_translate", "asost_memory"],
-    "critic_light": ["asost_critique"],
-    "critic_deep": ["asost_critique", "asost_memory"],
-    "context_keeper": ["asost_memory"],
-    "book_adapter": ["asost_memory"],
+    "translator": ["asost_translate", "asost_gemini", "asost_memory"],
+    "critic_light": [],
+    "critic_deep": ["asost_gemini", "asost_memory"],
+    "context_keeper": ["asost_gemini", "asost_memory"],
+    "book_adapter": ["asost_gemini", "asost_memory"],
+    "reviser": ["asost_translate", "asost_gemini", "asost_memory"],
 }
 
 

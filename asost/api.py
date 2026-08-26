@@ -21,9 +21,11 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel
 
+from .config import settings
+
 ASOST_DIR = Path(__file__).resolve().parent
 AGENTS_DIR = ASOST_DIR / "agents"
-MEMORY_PATH = Path("/opt/data/projects/assost/asost_memory.json")
+MEMORY_PATH = settings.memory_path
 
 MAX_SRC_TEXT_CHARS = 20000
 MAX_JOBS = 50  # نحتفظ بآخر 50 مهمة فقط (تنظيف الأقدم عند الإضافة)
@@ -44,7 +46,7 @@ def _check_write_auth(x_asost_token: str | None):
 
 
 def _get_orchestrator():
-    from orchestrator import ASOSTOrchestrator
+    from asost.orchestrator import ASOSTOrchestrator
     return ASOSTOrchestrator()
 
 
