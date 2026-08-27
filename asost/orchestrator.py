@@ -96,17 +96,16 @@ def _extract_score(data):
     return int(round(val))
 
 
-def _memory_path():
-    import os
-    return "/opt/data/projects/assost/asost_memory.json"
-
-
 class ASOSTOrchestrator:
     """Orchestrator — يبني الوكلاء الدائمين مرة واحدة ويدير خط الترجمة."""
 
-    def __init__(self):
+    def __init__(self, repository=None, *, book_id="default", run_id="default",
+                 agent_role="orchestrator", chapter_id="global", segment_id="global"):
         ensure_hermes_home()
         self._agents = {}
+        from asost.memory import MemoryNamespace, SQLiteMemoryRepository
+        self.repository = repository or SQLiteMemoryRepository()
+        self.namespace = MemoryNamespace(book_id, run_id, agent_role, chapter_id, segment_id)
 
     def agent(self, name):
         if name not in self._agents:
@@ -139,31 +138,12 @@ class ASOSTOrchestrator:
 
     # ------------------------------------------------------------- memory --
     def save_state(self, key, value):
-        """حفظ الحالة عبر ملف ذاكرة ASOST (نفس مخزن asost_memory tools)."""
-        import os
-        path = _memory_path()
-        try:
-            data = json.load(open(path, encoding="utf-8"))
-            if not isinstance(data, dict):
-                data = {}
-        except (FileNotFoundError, ValueError, OSError):
-            data = {}
-        data[key] = value
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        """Persist state through the shared transactional repository."""
+        self.repository.put(self.namespace, key, value)
         return True
 
     def load_state(self, key, default=None):
-        import os
-        path = _memory_path()
-        try:
-            data = json.load(open(path, encoding="utf-8"))
-        except (FileNotFoundError, ValueError, OSError):
-            return default
-        val = data.get(key, default)
-        if isinstance(val, (dict, list)):
-            return val
-        return val
+        return self.repository.get(self.namespace, key, default)
 
     # ------------------------------------------------------------ pipeline --
     def translate_page(self, page_num, src_text, context=""):
@@ -284,6 +264,13 @@ class ASOSTOrchestrator:
             f"page_{page_num}_result",
             {k: v for k, v in decision.items() if k != "translation"},
         )
+        if decision["decision"] == "accepted":
+            from dataclasses import replace
+            page_namespace = replace(self.namespace, segment_id=f"page-{page_num}")
+            self.repository.commit_accepted_translation(
+                page_namespace, src_text, decision["translation"],
+                {k: v for k, v in decision.items() if k != "translation"},
+            )
         return decision
 
 

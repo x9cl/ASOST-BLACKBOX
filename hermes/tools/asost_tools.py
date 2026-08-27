@@ -7,17 +7,15 @@ top-level ``registry.register(...)`` call (same pattern as memory_tool.py).
 Placeholder implementations — ready to be filled in later:
 - asost_translate_text: delegates to the ASOST OpenRouter engine
   (assost-main/openrouter_engine.py, model stealth/ox-alpha) via dynamic import.
-- asost_memory_get / asost_memory_set: JSON key/value store at
-  /opt/data/projects/assost/asost_memory.json
+- asost_memory_get / asost_memory_set: namespaced SQLite repository in WAL mode
 
 (النقد يتم داخل منظومة ASOST عبر وكلاء critic_light/critic_deep — لا أداة critique هنا.)
 """
 
 import asyncio
-import json
 import sys
 import threading
-from pathlib import Path
+from asost.memory import MemoryNamespace, SQLiteMemoryRepository
 
 from tools.registry import registry
 
@@ -25,8 +23,6 @@ logger = __import__("logging").getLogger(__name__)
 
 # Dynamic import path for the ASOST engine
 _ASOST_MAIN = "/opt/data/projects/assost/assost-main"
-_MEMORY_PATH = Path("/opt/data/projects/assost/asost_memory.json")
-
 _engine = None          # cached EnhancedOpenRouterAPI instance
 _engine_lock = threading.Lock()
 
@@ -55,40 +51,29 @@ def asost_translate_text(text: str, context: str = "", engine: str = "auto") -> 
     return result or ""
 
 
-def asost_memory_get(key: str) -> str:
-    """Read ``key`` from the ASOST JSON memory file. Returns '' when absent."""
-    try:
-        data = json.loads(_MEMORY_PATH.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return ""
-    except (OSError, ValueError):
-        return ""
-    value = data.get(key, "")
+def _namespace(book_id, run_id, agent_role, chapter_id, segment_id):
+    return MemoryNamespace(book_id, run_id, agent_role, chapter_id, segment_id)
+
+def asost_memory_get(key: str, book_id: str, run_id: str, agent_role: str,
+                     chapter_id: str, segment_id: str) -> str:
+    """Read a namespaced value from the shared repository."""
+    import json
+    value = SQLiteMemoryRepository().get(
+        _namespace(book_id, run_id, agent_role, chapter_id, segment_id), key, "")
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
-def asost_memory_set(key: str, value: str) -> str:
-    """Write ``key`` into the ASOST JSON memory file (merged write)."""
+def asost_memory_set(key: str, value: str, book_id: str, run_id: str, agent_role: str,
+                     chapter_id: str, segment_id: str) -> str:
+    """Write a namespaced value into the shared repository."""
+    import json
     try:
-        try:
-            data = json.loads(_MEMORY_PATH.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                data = {}
-        except (FileNotFoundError, OSError, ValueError):
-            data = {}
-        # Try to store structured values when they parse as JSON
-        try:
-            stored = json.loads(value)
-        except ValueError:
-            stored = value
-        data[key] = stored
-        _MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _MEMORY_PATH.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        return f"saved: {key}"
-    except OSError as exc:
-        return f"error: {exc}"
+        stored = json.loads(value)
+    except ValueError:
+        stored = value
+    SQLiteMemoryRepository().put(
+        _namespace(book_id, run_id, agent_role, chapter_id, segment_id), key, stored)
+    return f"saved: {key}"
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +124,15 @@ registry.register(
             "type": "object",
             "properties": {
                 "key": {"type": "string", "description": "Memory key to read."},
+                "book_id": {"type": "string"}, "run_id": {"type": "string"},
+                "agent_role": {"type": "string"}, "chapter_id": {"type": "string"},
+                "segment_id": {"type": "string"},
             },
-            "required": ["key"],
+            "required": ["key", "book_id", "run_id", "agent_role", "chapter_id", "segment_id"],
         },
     },
-    handler=lambda args, **kw: asost_memory_get(key=args.get("key", "")),
+    handler=lambda args, **kw: asost_memory_get(**{
+        k: args.get(k, "") for k in ("key", "book_id", "run_id", "agent_role", "chapter_id", "segment_id")}),
     emoji="🗂️",
 )
 
@@ -157,12 +146,14 @@ registry.register(
             "properties": {
                 "key": {"type": "string", "description": "Memory key."},
                 "value": {"type": "string", "description": "Value to store."},
+                "book_id": {"type": "string"}, "run_id": {"type": "string"},
+                "agent_role": {"type": "string"}, "chapter_id": {"type": "string"},
+                "segment_id": {"type": "string"},
             },
-            "required": ["key", "value"],
+            "required": ["key", "value", "book_id", "run_id", "agent_role", "chapter_id", "segment_id"],
         },
     },
-    handler=lambda args, **kw: asost_memory_set(
-        key=args.get("key", ""), value=args.get("value", "")
-    ),
+    handler=lambda args, **kw: asost_memory_set(**{
+        k: args.get(k, "") for k in ("key", "value", "book_id", "run_id", "agent_role", "chapter_id", "segment_id")}),
     emoji="💾",
 )
