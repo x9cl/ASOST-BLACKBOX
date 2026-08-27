@@ -1,6 +1,7 @@
 """agent_runner.py — بناء وكلاء ASOST الدائمين فوق نواة Hermes (AIAgent).
 
-build_agent(agent_name) يقرأ identity.yaml من مجلد الوكيل ويبني AIAgent بالهوية
+build_agent(agent_name, book_id, run_id, agent_instance_id) يقرأ identity.yaml
+من مجلد الوكيل ويبني AIAgent بهوية تشغيل معزولة
 والـ toolsets المحددة، مع HERMES_HOME مضبوط على /opt/data/projects/assost/hermes-home.
 لا تعديل على hermes/ إطلاقاً.
 """
@@ -83,7 +84,8 @@ def get_api_key():
     return key
 
 
-def build_agent(agent_name, model="stealth/ox-alpha"):
+def build_agent(agent_name, book_id, run_id, agent_instance_id,
+                model="stealth/ox-alpha"):
     """بناء AIAgent لهوية وكيل ASOST من مجلده.
 
     - يضبط HERMES_HOME
@@ -91,12 +93,29 @@ def build_agent(agent_name, model="stealth/ox-alpha"):
     - enabled_toolsets حسب الدور (أو كما في identity.yaml)
     """
     ensure_hermes_home()
+    raw_identity = {
+        "book_id": book_id,
+        "run_id": run_id,
+        "agent_instance_id": agent_instance_id,
+    }
+    for field, value in raw_identity.items():
+        if value is None or not str(value).strip():
+            raise ValueError(f"{field} must not be empty")
+    execution_identity = {key: str(value) for key, value in raw_identity.items()}
     ident = _load_identity(agent_name)
     role = ident.get("role", agent_name)
     toolsets = ident.get("toolsets")
     if not isinstance(toolsets, list) or not toolsets:
         toolsets = ROLE_TOOLSETS.get(role, [])
     system_prompt = ident.get("system_prompt") or ident.get("description", "")
+    session_id = f"asost:{execution_identity['book_id']}:{execution_identity['run_id']}:{role}"
+    system_prompt += (
+        "\n\nASOST execution identity (forward unchanged to tools and checkpoints): "
+        f"book_id={execution_identity['book_id']}; "
+        f"run_id={execution_identity['run_id']}; "
+        f"agent_instance_id={execution_identity['agent_instance_id']}; "
+        f"session_id={session_id}."
+    )
 
     from run_agent import AIAgent  # noqa: E402
 
@@ -112,9 +131,21 @@ def build_agent(agent_name, model="stealth/ox-alpha"):
         skip_context_files=True,
         skip_memory=True,
         platform=ident.get("platform", f"asost-{role}"),
-        session_id=f"asost-{agent_name}",
+        user_id=execution_identity["book_id"],
+        chat_id=execution_identity["run_id"],
+        thread_id=execution_identity["agent_instance_id"],
+        session_id=session_id,
+        # Hermes includes this ID in the prompt and propagates it to tool calls.
+        pass_session_id=True,
     )
     agent.asost_identity = ident
+    agent.asost_execution_identity = {
+        **execution_identity,
+        "role": role,
+        "session_id": session_id,
+        "memory_namespace": f"asost:{execution_identity['book_id']}:{execution_identity['run_id']}",
+        "checkpoint_namespace": session_id,
+    }
     return agent
 
 

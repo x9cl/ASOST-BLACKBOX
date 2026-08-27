@@ -5,6 +5,7 @@
 """
 import json
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 from agent_runner import build_agent, ensure_hermes_home  # noqa: F401
@@ -17,6 +18,7 @@ JSON_ONLY_RULE = ('أعد إجابتك كـ JSON واحد فقط بهذا الش
                   '{"score": <0-100>, "notes": [...]}. لا نص قبل أو بعد.')
 
 MAX_REVISION_ROUNDS = 3
+_MEMORY_LOCK = threading.RLock()
 
 
 def _extract_json(text):
@@ -104,13 +106,21 @@ def _memory_path():
 class ASOSTOrchestrator:
     """Orchestrator — يبني الوكلاء الدائمين مرة واحدة ويدير خط الترجمة."""
 
-    def __init__(self):
+    def __init__(self, book_id, run_id, agent_instance_id):
         ensure_hermes_home()
         self._agents = {}
+        if any(value is None or not str(value).strip()
+               for value in (book_id, run_id, agent_instance_id)):
+            raise ValueError("book_id, run_id and agent_instance_id must not be empty")
+        self.book_id = str(book_id)
+        self.run_id = str(run_id)
+        self.agent_instance_id = str(agent_instance_id)
+        self.memory_namespace = f"asost:{self.book_id}:{self.run_id}"
 
     def agent(self, name):
         if name not in self._agents:
-            self._agents[name] = build_agent(name)
+            self._agents[name] = build_agent(
+                name, self.book_id, self.run_id, self.agent_instance_id)
         return self._agents[name]
 
     def _chat(self, name, message):
@@ -140,27 +150,30 @@ class ASOSTOrchestrator:
     # ------------------------------------------------------------- memory --
     def save_state(self, key, value):
         """حفظ الحالة عبر ملف ذاكرة ASOST (نفس مخزن asost_memory tools)."""
-        import os
         path = _memory_path()
-        try:
-            data = json.load(open(path, encoding="utf-8"))
-            if not isinstance(data, dict):
+        with _MEMORY_LOCK:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    data = {}
+            except (FileNotFoundError, ValueError, OSError):
                 data = {}
-        except (FileNotFoundError, ValueError, OSError):
-            data = {}
-        data[key] = value
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+            namespace = data.setdefault(self.memory_namespace, {})
+            namespace[key] = value
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
         return True
 
     def load_state(self, key, default=None):
-        import os
         path = _memory_path()
-        try:
-            data = json.load(open(path, encoding="utf-8"))
-        except (FileNotFoundError, ValueError, OSError):
-            return default
-        val = data.get(key, default)
+        with _MEMORY_LOCK:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+            except (FileNotFoundError, ValueError, OSError):
+                return default
+            val = data.get(self.memory_namespace, {}).get(key, default)
         if isinstance(val, (dict, list)):
             return val
         return val
@@ -201,6 +214,9 @@ class ASOSTOrchestrator:
                 score = int(round(v * 10 if v <= 10 else v))
 
         decision = {"page": page_num, "translation": translation,
+                    "book_id": self.book_id, "run_id": self.run_id,
+                    "agent_instance_id": self.agent_instance_id,
+                    "memory_namespace": self.memory_namespace,
                     "light": light, "light_score": score}
 
         if score is not None and score >= ACCEPT_THRESHOLD:
@@ -288,7 +304,7 @@ class ASOSTOrchestrator:
 
 
 if __name__ == "__main__":
-    orch = ASOSTOrchestrator()
+    orch = ASOSTOrchestrator("manual-book", "manual-run", "manual-supervisor")
     for name in ["translator", "critic_light", "critic_deep",
                  "context_keeper", "book_adapter", "reviser"]:
         a = orch.agent(name)
