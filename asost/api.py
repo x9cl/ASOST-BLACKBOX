@@ -8,10 +8,11 @@ Endpoints:
     POST /api/asost/translate-page  {page_num, src_text, context} → {job_id}
     GET  /api/asost/status/{job_id} → حالة المهمة + النتيجة
     GET  /api/asost/agents          → الوكلاء الستة وهويتهم من identity.yaml
-    GET  /api/asost/memory          → محتوى asost_memory.json
+    GET  /api/asost/memory          → ملخص عددي آمن للذاكرة
 """
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import threading
@@ -33,14 +34,76 @@ router = APIRouter(prefix="/api/asost", tags=["asost"])
 _jobs: dict = {}
 _lock = threading.Lock()
 
+ROLES = frozenset({"operator", "reviewer", "observer", "admin"})
+READ_ROLES = ROLES
+WRITE_ROLES = frozenset({"operator", "admin"})
+ROLE_ALIASES = {
+    "read-only observer": "observer",
+    "read-only-observer": "observer",
+    "read_only_observer": "observer",
+}
+SENSITIVE_KEYS = frozenset({
+    "api_key", "apikey", "authorization", "credential", "credentials",
+    "password", "secret", "token", "access_token", "refresh_token",
+})
+
+
+def _configured_tokens() -> dict[str, str]:
+    """Load token-to-role mappings without ever putting tokens in responses."""
+    raw = os.environ.get("ASOST_AUTH_TOKENS", "")
+    try:
+        configured = json.loads(raw) if raw else {}
+    except ValueError as exc:
+        raise HTTPException(503, "إعداد المصادقة على الخادم غير صالح") from exc
+    if not isinstance(configured, dict):
+        raise HTTPException(503, "إعداد المصادقة على الخادم غير صالح")
+
+    tokens = {}
+    for token, configured_role in configured.items():
+        role = str(configured_role).strip().lower()
+        role = ROLE_ALIASES.get(role, role)
+        if token and role in ROLES:
+            tokens[str(token)] = role
+    # Backwards compatibility: the old write token receives admin privileges.
+    legacy = os.environ.get("ASOST_API_TOKEN", "")
+    if legacy:
+        tokens.setdefault(legacy, "admin")
+    if not tokens:
+        raise HTTPException(503, "المصادقة معطلة: لم تُضبط توكنات ASOST")
+    return tokens
+
+
+def _authorize(token: str | None, allowed_roles: frozenset[str]) -> str:
+    if not token:
+        raise HTTPException(401, "بيانات المصادقة مفقودة")
+    role = next(
+        (role for expected, role in _configured_tokens().items()
+         if hmac.compare_digest(token, expected)),
+        None,
+    )
+    if role is None:
+        raise HTTPException(401, "بيانات المصادقة غير صحيحة")
+    if role not in allowed_roles:
+        raise HTTPException(403, "ليست لديك الصلاحية المطلوبة")
+    return role
+
 
 def _check_write_auth(x_asost_token: str | None):
-    """تحقق توكن الكتابة: ASOST_API_TOKEN من env عبر header X-ASOST-Token."""
-    expected = os.environ.get("ASOST_API_TOKEN", "")
-    if not expected:
-        raise HTTPException(503, "الكتابة معطلة: ASOST_API_TOKEN غير مضبوط على الخادم")
-    if not x_asost_token or x_asost_token != expected:
-        raise HTTPException(401, "توكن مفقود أو غير صحيح (header X-ASOST-Token)")
+    """Require an operator or administrator for a mutating operation."""
+    return _authorize(x_asost_token, WRITE_ROLES)
+
+
+def _redact_credentials(value: object) -> object:
+    """Remove credential values from structured job results."""
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if str(key).lower() in SENSITIVE_KEYS
+            else _redact_credentials(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_credentials(item) for item in value]
+    return value
 
 
 def _get_orchestrator():
@@ -63,9 +126,9 @@ def _run_job(job_id: str, page_num: int, src_text: str, context: str):
         result = orch.translate_page(page_num, src_text, context)
         with _lock:
             _jobs[job_id].update(status="done", result=result)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         with _lock:
-            _jobs[job_id].update(status="error", error=str(exc))
+            _jobs[job_id].update(status="error", error="تعذر إكمال المهمة")
 
 
 @router.post("/translate-page")
@@ -96,17 +159,31 @@ async def translate_page(
 
 
 @router.get("/status/{job_id}")
-async def job_status(job_id: str):
+async def job_status(
+    job_id: str,
+    x_asost_token: str | None = Header(default=None),
+):
+    role = _authorize(x_asost_token, READ_ROLES)
     with _lock:
         job = _jobs.get(job_id)
         if not job:
             raise HTTPException(404, f"job غير موجود: {job_id}")
-        return {k: v for k, v in job.items() if not k.startswith("_")}
+        response = {k: v for k, v in job.items() if not k.startswith("_")}
+        # Observers can monitor operational state without receiving book text.
+        if role == "observer":
+            response.pop("result", None)
+            response.pop("error", None)
+        else:
+            response["result"] = _redact_credentials(response.get("result"))
+            if response.get("error"):
+                response["error"] = "تعذر إكمال المهمة"
+        return response
 
 
 # ---------------------------------------------------------------- agents --
 @router.get("/agents")
-async def list_agents():
+async def list_agents(x_asost_token: str | None = Header(default=None)):
+    _authorize(x_asost_token, READ_ROLES)
     agents = []
     for d in sorted(AGENTS_DIR.iterdir()):
         ident_path = d / "identity.yaml"
@@ -128,12 +205,40 @@ async def list_agents():
 
 
 # ---------------------------------------------------------------- memory --
+def _collection_count(data: object, names: frozenset[str]) -> int:
+    """Count named collections by structure, never by returning their values."""
+    if isinstance(data, dict):
+        count = 0
+        for key, value in data.items():
+            if str(key).lower() in names:
+                if isinstance(value, (dict, list)):
+                    count += len(value)
+                elif value is not None:
+                    count += 1
+            count += _collection_count(value, names)
+        return count
+    if isinstance(data, list):
+        return sum(_collection_count(item, names) for item in data)
+    return 0
+
+
+def _memory_summary(data: object) -> dict[str, int]:
+    return {
+        "books": _collection_count(data, frozenset({"books", "book"})),
+        "chapters": _collection_count(data, frozenset({"chapters", "chapter"})),
+        "terms": _collection_count(
+            data, frozenset({"terms", "term", "glossary", "terminology"})
+        ),
+    }
+
+
 @router.get("/memory")
-async def memory():
+async def memory(x_asost_token: str | None = Header(default=None)):
+    _authorize(x_asost_token, READ_ROLES)
     if not MEMORY_PATH.is_file():
-        return {"exists": False, "data": {}}
+        return {"exists": False, "summary": {"books": 0, "chapters": 0, "terms": 0}}
     try:
         data = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
     except ValueError as exc:
-        raise HTTPException(500, f"ملف الذاكرة تالف: {exc}") from exc
-    return {"exists": True, "path": str(MEMORY_PATH), "data": data}
+        raise HTTPException(500, "تعذر قراءة ملخص الذاكرة") from exc
+    return {"exists": True, "summary": _memory_summary(data)}
