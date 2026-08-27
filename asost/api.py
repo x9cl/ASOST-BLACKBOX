@@ -5,7 +5,8 @@
     app.include_router(asost_router)
 
 Endpoints:
-    POST /api/asost/translate-page  {page_num, src_text, context} → {job_id}
+    POST /api/asost/translate-page  {book_id, run_id, agent_instance_id,
+                                     page_num, src_text, context} → {job_id}
     GET  /api/asost/status/{job_id} → حالة المهمة + النتيجة
     GET  /api/asost/agents          → الوكلاء الستة وهويتهم من identity.yaml
     GET  /api/asost/memory          → محتوى asost_memory.json
@@ -43,23 +44,27 @@ def _check_write_auth(x_asost_token: str | None):
         raise HTTPException(401, "توكن مفقود أو غير صحيح (header X-ASOST-Token)")
 
 
-def _get_orchestrator():
+def _get_orchestrator(book_id: str, run_id: str, agent_instance_id: str):
     from orchestrator import ASOSTOrchestrator
-    return ASOSTOrchestrator()
+    return ASOSTOrchestrator(book_id, run_id, agent_instance_id)
 
 
 # ------------------------------------------------------------- translate --
 class TranslateRequest(BaseModel):
+    book_id: str
+    run_id: str
+    agent_instance_id: str
     page_num: int
     src_text: str
     context: str = ""
 
 
-def _run_job(job_id: str, page_num: int, src_text: str, context: str):
+def _run_job(job_id: str, book_id: str, run_id: str, agent_instance_id: str,
+             page_num: int, src_text: str, context: str):
     with _lock:
         _jobs[job_id]["status"] = "running"
     try:
-        orch = _get_orchestrator()
+        orch = _get_orchestrator(book_id, run_id, agent_instance_id)
         result = orch.translate_page(page_num, src_text, context)
         with _lock:
             _jobs[job_id].update(status="done", result=result)
@@ -87,11 +92,16 @@ async def translate_page(
         while len(_jobs) >= MAX_JOBS:
             oldest = min(_jobs, key=lambda j: _jobs[j].get("_seq", 0))
             del _jobs[oldest]
-        job = {"status": "queued", "page_num": req.page_num,
+        job = {"status": "queued", "book_id": req.book_id,
+               "run_id": req.run_id,
+               "agent_instance_id": req.agent_instance_id,
+               "page_num": req.page_num,
                "submitted_at": None, "result": None, "error": None,
                "_seq": uuid.uuid4().time}
         _jobs[job_id] = job
-    background.add_task(_run_job, job_id, req.page_num, req.src_text, req.context)
+    background.add_task(
+        _run_job, job_id, req.book_id, req.run_id, req.agent_instance_id,
+        req.page_num, req.src_text, req.context)
     return {"job_id": job_id, "status": "queued"}
 
 
