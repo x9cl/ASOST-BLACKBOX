@@ -4,13 +4,16 @@
   2. سياق متراكم: ملخص كل فصل يغذي الفصول التالية
   3. إحصاءات جودة متابعة عبر الكتاب كله
 """
-import re, json, os, hashlib
+import re, hashlib
 from collections import Counter
+from asost.memory import MemoryNamespace, SQLiteMemoryRepository
 
 
 class TranslationMemory:
-    def __init__(self, persist_path='/opt/data/projects/assost/tests/translation_memory.json'):
-        self.persist_path = persist_path
+    def __init__(self, persist_path=None, repository=None, *, book_id='default', run_id='default',
+                 agent_role='translation_memory', chapter_id='global', segment_id='global'):
+        self.repository = repository or SQLiteMemoryRepository()
+        self.namespace = MemoryNamespace(book_id, run_id, agent_role, chapter_id, segment_id)
         self.data = self._load() or {
             'tm': {},              # {src_hash: {'src':..., 'ar':..., 'hits': N}}
             'phrase_pairs': {},    # {en_phrase: ar_phrase} — عبارات متكررة
@@ -20,13 +23,10 @@ class TranslationMemory:
         }
 
     def _load(self):
-        if os.path.exists(self.persist_path):
-            return json.load(open(self.persist_path))
-        return None
+        return self.repository.get(self.namespace, 'translation_memory')
 
     def save(self):
-        os.makedirs(os.path.dirname(self.persist_path), exist_ok=True)
-        json.dump(self.data, open(self.persist_path, 'w'), indent=1, ensure_ascii=False)
+        self.repository.put(self.namespace, 'translation_memory', self.data)
 
     # ── TM: تخزين و استرجاع ────────────────────────────────────────
     @staticmethod

@@ -4,11 +4,15 @@
   2. نافذة سياق ممتدة: آخر ~1200 حرف مترجم + أول 300 من الفصل القادم (معاينة)
   3. فحص اتساق بعد الترجمة: هل الأسماء المعروفة ظهرت بصيغتها العربية الموحدة؟
 """
-import re, json, os
+import re
+from asost.memory import MemoryNamespace, SQLiteMemoryRepository
 
 class ContextBridge:
-    def __init__(self, persist_path='/opt/data/projects/assost/tests/context_bible.json'):
-        self.persist_path = persist_path
+    def __init__(self, persist_path=None, repository=None, *, book_id='default',
+                 run_id='default', agent_role='context_bridge', chapter_id='global',
+                 segment_id='global'):
+        self.repository = repository or SQLiteMemoryRepository()
+        self.namespace = MemoryNamespace(book_id, run_id, agent_role, chapter_id, segment_id)
         self.bible = self._load() or {
             'characters': {},   # {en_lower: {'ar': ..., 'variants': [...]}}
             'places': {},
@@ -17,13 +21,10 @@ class ContextBridge:
         }
 
     def _load(self):
-        if os.path.exists(self.persist_path):
-            return json.load(open(self.persist_path))
-        return None
+        return self.repository.get(self.namespace, 'context_bible')
 
     def save(self):
-        os.makedirs(os.path.dirname(self.persist_path), exist_ok=True)
-        json.dump(self.bible, open(self.persist_path, 'w'), indent=2, ensure_ascii=False)
+        self.repository.put(self.namespace, 'context_bible', self.bible)
 
     # ── 1) بناء المعجم قبل الترجمة ────────────────────────────────
     def build_glossary_prompt(self) -> str:
