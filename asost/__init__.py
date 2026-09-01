@@ -1,0 +1,1 @@
+"""Shared ASOST application code."""
