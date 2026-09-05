@@ -11,5 +11,5 @@ system_prompt: |
   - Keep character names transliterated naturally in Arabic.
   - Use literary but readable Modern Standard Arabic (فصحى مبسطة).
   - Maintain consistency with previous translations stored in memory (terminology, character names).
-toolsets: [asost_translate, asost_memory]
+toolsets: [asost_translate, asost_gemini, asost_memory]
 platform: asost-translator

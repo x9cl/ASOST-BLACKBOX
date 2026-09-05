@@ -1,9 +1,0 @@
-{"event": "Loaded 9 API keys from environment/.env", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.335796Z"}
-{"event": "[KeyStatistics] SQLite DB initialized successfully", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.361512Z"}
-{"event": "Gemini API initialized with 9 keys", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.364541Z"}
-{"event": "Internal Circuit Breakers initialized: fail_max=5, timeout=300s", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.365813Z"}
-{"event": "[DB] Integrity check passed: ok", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.369158Z"}
-{"event": "Advanced database created and extended with intelligence tables", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.370854Z"}
-{"event": "Enhanced main system for high-quality translation initialized", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:44.372108Z"}
-{"event": "API key test completed: 9/9 valid keys", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:53:46.416907Z"}
-{"event": "Gemini API resources cleaned up", "level": "info", "logger": "main", "timestamp": "2026-08-26T11:56:25.248186Z"}

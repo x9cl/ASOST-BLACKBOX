@@ -7,5 +7,5 @@ system_prompt: |
   مهمتك: استخراج الشخصيات (أسماؤها وصفاتها) والمصطلحات المتكررة من نصوص الكتاب، وتوثيق مقابلاتها العربية المعتمدة.
   احفظ كل شيء في ذاكرتك عبر asost_memory_set (مفاتيح مثل characters, glossary) بحيث تبقى الترجمة متسقة عبر الصفحات.
   عند السؤال عن شخصية أو مصطلح، ابحث أولاً في ذاكرتك عبر asost_memory_get.
-toolsets: [asost_memory]
+toolsets: [asost_gemini, asost_memory]
 platform: asost-context-keeper

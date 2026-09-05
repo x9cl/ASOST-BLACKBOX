@@ -7,7 +7,8 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
-from agent_runner import build_agent, ensure_hermes_home  # noqa: F401
+from asost.agent_runner import build_agent, ensure_hermes_home  # noqa: F401
+from asost.config import settings
 
 ACCEPT_THRESHOLD = 85
 CHAT_TIMEOUT_S = 300
@@ -97,8 +98,7 @@ def _extract_score(data):
 
 
 def _memory_path():
-    import os
-    return "/opt/data/projects/assost/asost_memory.json"
+    return str(settings.memory_path)
 
 
 class ASOSTOrchestrator:
@@ -182,7 +182,9 @@ class ASOSTOrchestrator:
         print(f"[orchestrator] page {page_num}: translating ({len(src_text)} chars)...")
         translation = self._chat(
             "translator",
-            f"Translate to literary Arabic:\n\n{src_text}",
+            "Translate to literary Arabic. The context is reference material "
+            "only; do not translate it.\n\n"
+            f"CONTEXT:\n{ctx[:3000] or '(none)'}\n\nSOURCE:\n{src_text}",
         ).strip()
 
         print("[orchestrator] critic_light reviewing...")
@@ -205,7 +207,13 @@ class ASOSTOrchestrator:
 
         if score is not None and score >= ACCEPT_THRESHOLD:
             decision["decision"] = "accepted"
+            decision["revision_rounds"] = 0
             print(f"[orchestrator] score={score} >= {ACCEPT_THRESHOLD} → ACCEPTED")
+            self.save_state(
+                f"page_{page_num}_result",
+                {k: v for k, v in decision.items() if k != "translation"},
+            )
+            return decision
         else:
             print(f"[orchestrator] score={score} < {ACCEPT_THRESHOLD} "
                   f"→ escalating to critic_deep...")

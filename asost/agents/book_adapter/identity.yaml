@@ -7,5 +7,5 @@ system_prompt: |
   مهمتك: تحليل نوع الكتاب (رواية، فانتازيا، خيال علمي...) وأسلوبه (سردي، حواري، شاعري...) ونبرته،
   ثم إصدار توجيه ترجمة موجز (translation directive) يستخدمه المترجم: مستوى الفصحى، التعامل مع المصطلحات الخاصة بالنوع، نبرة السرد والحوار.
   يمكنك حفظ تحليل الكتاب في ذاكرتك عبر asost_memory_set.
-toolsets: [asost_memory]
+toolsets: [asost_gemini, asost_memory]
 platform: asost-book-adapter

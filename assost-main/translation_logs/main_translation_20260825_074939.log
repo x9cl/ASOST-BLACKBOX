@@ -1,7 +1,0 @@
-{"event": "Loaded 9 API keys from environment/.env", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:39.166632Z"}
-{"event": "[KeyStatistics] SQLite DB initialized successfully", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:39.191070Z"}
-{"event": "Gemini API initialized with 9 keys", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:39.194094Z"}
-{"event": "Internal Circuit Breakers initialized: fail_max=5, timeout=300s", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:39.195357Z"}
-{"event": "Sending translation request (attempt 1) key=AQ.Ab8RN6I... maxTokens=16384 topK=20 topP=0.9", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:42.458803Z"}
-{"event": "Request translation succeeded | key=AQ.Ab8RN6I... | time=2.32s | finishReason=STOP", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:44.776059Z"}
-{"event": "Gemini API resources cleaned up", "level": "info", "logger": "main", "timestamp": "2026-08-25T07:49:44.777839Z"}

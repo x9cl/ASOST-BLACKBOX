@@ -1,16 +1,18 @@
 """agent_runner.py — بناء وكلاء ASOST الدائمين فوق نواة Hermes (AIAgent).
 
 build_agent(agent_name) يقرأ identity.yaml من مجلد الوكيل ويبني AIAgent بالهوية
-والـ toolsets المحددة، مع HERMES_HOME مضبوط على /opt/data/projects/assost/hermes-home.
-لا تعديل على hermes/ إطلاقاً.
+والـ toolsets المحددة، مع مسارات قابلة للضبط وcredential pools يديرها Hermes.
+ASOST يمدد Hermes عبر واجهاته الأصلية ولا يعيد بناء runtime موازياً.
 """
 import os
 import sys
 
+from asost.config import settings
+
 ASOST_ROOT = os.path.dirname(os.path.abspath(__file__))
-PROJECT = os.path.dirname(ASOST_ROOT)
+PROJECT = str(settings.project_root)
 HERMES = os.path.join(PROJECT, "hermes")
-HERMES_HOME = os.path.join(PROJECT, "hermes-home")
+HERMES_HOME = str(settings.hermes_home)
 AGENTS_DIR = os.path.join(ASOST_ROOT, "agents")
 
 if HERMES not in sys.path:
@@ -18,11 +20,15 @@ if HERMES not in sys.path:
 
 # Toolsets حسب دور الوكيل (افتراضي؛ يمكن تجاوزه من identity.yaml)
 ROLE_TOOLSETS = {
-    "translator": ["asost_translate", "asost_memory"],
-    "critic_light": ["asost_critique"],
-    "critic_deep": ["asost_critique", "asost_memory"],
-    "context_keeper": ["asost_memory"],
-    "book_adapter": ["asost_memory"],
+    "translator": ["asost_translate", "asost_gemini", "asost_memory"],
+    "critic_light": [],
+    "critic_deep": ["asost_gemini", "asost_memory"],
+    "context_keeper": ["asost_gemini", "asost_memory"],
+    "book_adapter": ["asost_gemini", "asost_memory"],
+    "terminologist": ["asost_gemini", "asost_memory"],
+    "translation_planner": ["asost_memory"],
+    "quality_gate": [],
+    "reviser": ["asost_translate", "asost_gemini", "asost_memory"],
 }
 
 
@@ -83,7 +89,8 @@ def get_api_key():
     return key
 
 
-def build_agent(agent_name, model="stealth/ox-alpha"):
+def build_agent(agent_name, model="stealth/ox-alpha", *, book_id="standalone",
+                run_id="interactive"):
     """بناء AIAgent لهوية وكيل ASOST من مجلده.
 
     - يضبط HERMES_HOME
@@ -97,22 +104,41 @@ def build_agent(agent_name, model="stealth/ox-alpha"):
     if not isinstance(toolsets, list) or not toolsets:
         toolsets = ROLE_TOOLSETS.get(role, [])
     system_prompt = ident.get("system_prompt") or ident.get("description", "")
+    memory_instruction = (
+        "When using ASOST memory tools, always pass this book_id and your role "
+        "as the namespace. Never read or write another book namespace."
+        if book_id != "standalone" else
+        "This is a standalone session; omit book_id when using ASOST memory tools."
+    )
+    system_prompt += (
+        "\n\nRuntime identity:\n"
+        f"- book_id: {book_id}\n- run_id: {run_id}\n"
+        + memory_instruction
+    )
 
     from run_agent import AIAgent  # noqa: E402
+    from agent.credential_pool import load_pool  # noqa: E402
+
+    credential_pool = load_pool("openrouter")
+    credential = credential_pool.select()
+    api_key = credential.runtime_api_key if credential else get_api_key()
 
     agent = AIAgent(
         base_url="https://openrouter.ai/api/v1",
-        api_key=get_api_key(),
+        api_key=api_key,
         model=model,
         provider="openrouter",
         api_mode="chat_completions",
         quiet_mode=True,
         ephemeral_system_prompt=system_prompt,
         enabled_toolsets=list(toolsets),
+        max_iterations=settings.max_agent_iterations,
         skip_context_files=True,
         skip_memory=True,
         platform=ident.get("platform", f"asost-{role}"),
-        session_id=f"asost-{agent_name}",
+        session_id=f"asost:{book_id}:{run_id}:{agent_name}",
+        credential_pool=credential_pool,
+        checkpoints_enabled=True,
     )
     agent.asost_identity = ident
     return agent

@@ -1,0 +1,19 @@
+# ASOST/Hermes secrets and runtime state
+.env
+*.env
+hermes-home/auth.json
+hermes-home/state.db*
+asost_state.db*
+asost_memory.json
+*.db
+*.db-shm
+*.db-wal
+translation_logs/
+assost-main/translation_logs/
+hermes-home/logs/
+assost-main/uploads/*
+!assost-main/uploads/.gitkeep
+assost-main/outputs/*
+!assost-main/outputs/.gitkeep
+__pycache__/
+*.py[cod]

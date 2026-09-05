@@ -15,7 +15,9 @@ Placeholder implementations — ready to be filled in later:
 
 import asyncio
 import json
+import os
 import sys
+import tempfile
 import threading
 from pathlib import Path
 
@@ -23,12 +25,18 @@ from tools.registry import registry
 
 logger = __import__("logging").getLogger(__name__)
 
-# Dynamic import path for the ASOST engine
-_ASOST_MAIN = "/opt/data/projects/assost/assost-main"
-_MEMORY_PATH = Path("/opt/data/projects/assost/asost_memory.json")
+# Resolve the integration from this checkout unless deployment overrides it.
+_PROJECT_ROOT = Path(os.environ.get(
+    "ASOST_PROJECT_ROOT", Path(__file__).resolve().parents[2]
+)).expanduser().resolve()
+_ASOST_MAIN = str(_PROJECT_ROOT / "assost-main")
+_MEMORY_PATH = Path(os.environ.get(
+    "ASOST_MEMORY_PATH", _PROJECT_ROOT / "asost_memory.json"
+)).expanduser().resolve()
 
 _engine = None          # cached EnhancedOpenRouterAPI instance
 _engine_lock = threading.Lock()
+_memory_lock = threading.Lock()
 
 
 def _get_engine():
@@ -55,8 +63,18 @@ def asost_translate_text(text: str, context: str = "", engine: str = "auto") -> 
     return result or ""
 
 
-def asost_memory_get(key: str) -> str:
+def asost_memory_get(key: str, book_id: str = "", namespace: str = "agent") -> str:
     """Read ``key`` from the ASOST JSON memory file. Returns '' when absent."""
+    if book_id:
+        if str(_PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(_PROJECT_ROOT))
+        from asost.config import ASOSTSettings
+        from asost.store import ASOSTStore
+
+        value = ASOSTStore(ASOSTSettings.load().state_db_path).memory_get(
+            book_id, namespace, key, ""
+        )
+        return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     try:
         data = json.loads(_MEMORY_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -67,25 +85,54 @@ def asost_memory_get(key: str) -> str:
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
-def asost_memory_set(key: str, value: str) -> str:
-    """Write ``key`` into the ASOST JSON memory file (merged write)."""
-    try:
-        try:
-            data = json.loads(_MEMORY_PATH.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                data = {}
-        except (FileNotFoundError, OSError, ValueError):
-            data = {}
-        # Try to store structured values when they parse as JSON
+def asost_memory_set(key: str, value: str, book_id: str = "",
+                     namespace: str = "agent") -> str:
+    """Atomically merge ``key`` into the ASOST JSON memory file."""
+    if book_id:
+        if str(_PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(_PROJECT_ROOT))
+        from asost.config import ASOSTSettings
+        from asost.store import ASOSTStore
+
         try:
             stored = json.loads(value)
         except ValueError:
             stored = value
-        data[key] = stored
-        _MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _MEMORY_PATH.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        ASOSTStore(ASOSTSettings.load().state_db_path).memory_put(
+            book_id, namespace, key, stored
         )
+        return f"saved: {book_id}/{namespace}/{key}"
+    try:
+        with _memory_lock:
+            try:
+                data = json.loads(_MEMORY_PATH.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    data = {}
+            except (FileNotFoundError, OSError, ValueError):
+                data = {}
+            try:
+                stored = json.loads(value)
+            except ValueError:
+                stored = value
+            data[key] = stored
+            _MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp_name = tempfile.mkstemp(
+                prefix=f".{_MEMORY_PATH.name}.",
+                dir=str(_MEMORY_PATH.parent),
+                text=True,
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    json.dump(data, handle, ensure_ascii=False, indent=2)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(tmp_name, _MEMORY_PATH)
+            except Exception:
+                try:
+                    os.unlink(tmp_name)
+                except FileNotFoundError:
+                    pass
+                raise
         return f"saved: {key}"
     except OSError as exc:
         return f"error: {exc}"
@@ -139,11 +186,15 @@ registry.register(
             "type": "object",
             "properties": {
                 "key": {"type": "string", "description": "Memory key to read."},
+                "book_id": {"type": "string", "description": "Required book namespace."},
+                "namespace": {"type": "string", "description": "Agent role or memory class."},
             },
             "required": ["key"],
         },
     },
-    handler=lambda args, **kw: asost_memory_get(key=args.get("key", "")),
+    handler=lambda args, **kw: asost_memory_get(
+        key=args.get("key", ""), book_id=args.get("book_id", ""),
+        namespace=args.get("namespace", "agent")),
     emoji="🗂️",
 )
 
@@ -157,12 +208,15 @@ registry.register(
             "properties": {
                 "key": {"type": "string", "description": "Memory key."},
                 "value": {"type": "string", "description": "Value to store."},
+                "book_id": {"type": "string", "description": "Required book namespace."},
+                "namespace": {"type": "string", "description": "Agent role or memory class."},
             },
             "required": ["key", "value"],
         },
     },
     handler=lambda args, **kw: asost_memory_set(
-        key=args.get("key", ""), value=args.get("value", "")
+        key=args.get("key", ""), value=args.get("value", ""),
+        book_id=args.get("book_id", ""), namespace=args.get("namespace", "agent")
     ),
     emoji="💾",
 )

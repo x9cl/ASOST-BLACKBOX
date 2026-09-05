@@ -394,6 +394,12 @@ TOOLSETS = {
         "includes": []
     },
 
+    "asost_gemini": {
+        "description": "Bounded Gemini literary tools backed by the Hermes Gemini credential pool",
+        "tools": ["asost_gemini_task"],
+        "includes": []
+    },
+
     # Scenario-specific toolsets
 
     "debugging": {

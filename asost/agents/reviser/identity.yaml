@@ -13,5 +13,5 @@ system_prompt: |
   - حافظ على الاتساق مع الترجمات السابقة المحفوظة في الذاكرة (asost_memory).
   قاعدة الإخراج الصارمة:
   - Output ONLY the corrected Arabic translation text. No notes, no explanations, no English, no JSON, no preamble.
-toolsets: [asost_translate, asost_memory]
+toolsets: [asost_translate, asost_gemini, asost_memory]
 platform: asost-reviser
