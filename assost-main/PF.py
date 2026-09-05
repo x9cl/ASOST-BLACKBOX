@@ -829,7 +829,10 @@ class _CircuitBreakerKeyError(Exception):
 class EnhancedGeminiAPI:
     """إدارة محسنة لـ Gemini API مع مفاتيح متعددة"""
     
-    def __init__(self, api_keys: List[str] = None):
+    def __init__(self, api_keys: List[str] = None, task_policies=None):
+        from asost_config import ASOSTSettings
+        self.task_policies = ASOSTSettings(task_policies)
+        self.request_provenance: List[Dict[str, Any]] = []
         # المفاتيح من متغير البيئة ASOST_GEMINI_KEYS (أو ملف .env) — لا مفاتيح في الكود
         self.api_keys = self._load_keys_from_env()
         if False:  # dead branch — env keys are authoritative
@@ -880,8 +883,8 @@ class EnhancedGeminiAPI:
         # التوزيع الدائري
         self.current_key_index = 0
 
-        # إعدادات الAPI لـ Gemini 2.5 Flash
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+        # endpoint root only; the selected model comes from GeminiTaskPolicy.
+        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
         self.max_retries = 6
         self.retry_delays = [3, 6, 12, 24, 48, 96]
         
@@ -1055,9 +1058,10 @@ class EnhancedGeminiAPI:
             self.blocked_keys.clear()
             # Loop will continue
     
-    async def make_precision_request(self, prompt: str, system_instruction: str = "", 
-                                   temperature: float = 0.05, max_tokens: int = 16384,
-                                   request_type: str = "translation") -> Tuple[Optional[str], float, Optional[str]]:
+    async def make_precision_request(self, prompt: str, system_instruction: str = "",
+                                   temperature: float = None, max_tokens: int = None,
+                                   request_type: str = "translation", policy=None
+                                   ) -> Tuple[Optional[str], float, Optional[str]]:
         """
         إرسال طلب دقيق مع تحسينات شاملة:
           ✅ systemInstruction كحقل مستقل في payload (وزن أعلى لدى النموذج)
@@ -1065,6 +1069,14 @@ class EnhancedGeminiAPI:
           ✅ maxOutputTokens يُحسب ديناميكياً من طول النص المُدخَل
           ✅ Circuit Breaker لكل مفتاح (5 فشل → إيقاف 5 دقائق ثم اختبار واحد)
         """
+        # The composition root may pass an explicit policy. For compatibility,
+        # request_type also resolves a configured task policy.
+        if policy is None:
+            policy = self.task_policies.policy_for_request(request_type)
+        request_type = policy.request_type
+        temperature = policy.temperature if temperature is None else temperature
+        max_tokens = policy.max_output_tokens if max_tokens is None else max_tokens
+
         # التأكد من وجود جلسة نشطة
         await self._ensure_session()
 
@@ -1081,7 +1093,9 @@ class EnhancedGeminiAPI:
         # --- profile للتوليد حسب نوع الطلب ---
         profile = self._get_generation_profile(request_type)
 
+        models = policy.models
         for attempt in range(self.max_retries):
+            model = models[min(attempt, len(models) - 1)]
             api_key = await self.get_optimal_api_key(total_estimated_tokens)
             if not api_key:
                 logger.error("No API keys available")
@@ -1125,7 +1139,7 @@ class EnhancedGeminiAPI:
                     "parts": [{"text": system_instruction.strip()}]
                 }
 
-            url = f"{self.base_url}?key={api_key}"
+            url = f"{self.base_url}/{model}:generateContent?key={api_key}"
 
             # --- تنفيذ طلب HTTP مع Circuit Breaker داخلي ---
             result_holder: Dict[str, Any] = {}
@@ -1137,7 +1151,10 @@ class EnhancedGeminiAPI:
                 لا ترفع استثناءً للـ 429 (rate limit) — يُعالج بشكل منفصل.
                 """
                 try:
-                    async with self.session.post(url, json=payload, headers=headers) as response:
+                    timeout = aiohttp.ClientTimeout(total=policy.timeout)
+                    async with self.session.post(
+                        url, json=payload, headers=headers, timeout=timeout
+                    ) as response:
                         result_holder["status"] = response.status
                         if response.status == 200:
                             result_holder["json"] = await response.json()
@@ -1163,7 +1180,7 @@ class EnhancedGeminiAPI:
 
             try:
                 logger.info(
-                    f"Sending {request_type} request (attempt {attempt+1}) "
+                    f"Sending {request_type} request model={model} (attempt {attempt+1}) "
                     f"key={api_key[:10]}... "
                     f"maxTokens={dynamic_max_tokens} topK={profile['topK']} topP={profile['topP']}"
                 )
@@ -1193,7 +1210,20 @@ class EnhancedGeminiAPI:
                             # نُضيف علامة نهاية مقطوعة ليستطيع المُستدعي اكتشافها
                             content = content.strip() + "\n###TRUNCATED###"
                         self.key_stats[api_key].record_success(response_time)
-                        logger.info(f"Request {request_type} succeeded | key={api_key[:10]}... | time={response_time:.2f}s | finishReason={finish_reason}")
+                        # Gemini may return a concrete modelVersion when the
+                        # configured name is an alias; provenance records that
+                        # actual value rather than merely the requested alias.
+                        actual_model = result.get("modelVersion", model)
+                        provenance = {
+                            "request_type": request_type,
+                            "model": actual_model,
+                            "requested_model": model,
+                            "key_id": f"{api_key[:10]}...",
+                            "attempt": attempt + 1,
+                            "response_time": response_time,
+                        }
+                        self.request_provenance.append(provenance)
+                        logger.info(f"Request {request_type} succeeded | model={actual_model} | key={api_key[:10]}... | time={response_time:.2f}s | finishReason={finish_reason}")
                         return content.strip(), response_time, api_key
                     else:
                         logger.warning(f"Unexpected response from Gemini: {result}")
