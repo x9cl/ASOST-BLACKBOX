@@ -8,6 +8,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 from agent_runner import build_agent, ensure_hermes_home  # noqa: F401
+from execution import ExecutionTrace, Supervisor, TranslationPlanner
 
 ACCEPT_THRESHOLD = 85
 CHAT_TIMEOUT_S = 300
@@ -166,7 +167,7 @@ class ASOSTOrchestrator:
         return val
 
     # ------------------------------------------------------------ pipeline --
-    def translate_page(self, page_num, src_text, context=""):
+    def translate_page(self, page_num, src_text, context="", execution_plan=None):
         """دورة كاملة: ترجمة → نقد سريع → قرار قبول / نقد عميق.
 
         يعمل dict: {page, translation, light: {...}, deep?: {...},
@@ -179,11 +180,28 @@ class ASOSTOrchestrator:
             raise ValueError(
                 f"translate_page: src_text أقصر من 50 حرفاً "
                 f"({len(src_text)}) — رفض مبكر.")
+        plan = execution_plan or TranslationPlanner.plan(str(src_text))
+        if plan.source_hash != TranslationPlanner.plan(str(src_text)).source_hash:
+            raise ValueError("ExecutionPlan source_hash does not match source chunk")
+        supervisor = Supervisor(plan)
+        trace = ExecutionTrace(plan.source_hash)
         print(f"[orchestrator] page {page_num}: translating ({len(src_text)} chars)...")
+        if plan.route != "agent":
+            supervisor.record_tool_call(
+                "gemini" if plan.route == "gemini" else "asost_translate_text")
         translation = self._chat(
             "translator",
+            "Follow this binding ExecutionPlan; do not select another provider or "
+            "route. Provider fallback is "
+            f"{'allowed within budget' if plan.allow_provider_fallback else 'forbidden'}.\n"
+            f"{json.dumps(plan.to_dict(), ensure_ascii=False)}\n\n"
             f"Translate to literary Arabic:\n\n{src_text}",
         ).strip()
+        trace.add("agent_model", "translator",
+                  model=getattr(self.agent("translator"), "model", "stealth/ox-alpha"))
+        if plan.route != "agent":
+            trace.add("optional_tool", "translator", tool=plan.route)
+        trace.add("full_translation", "translator", model=plan.route)
 
         print("[orchestrator] critic_light reviewing...")
         raw = self._chat(
@@ -192,6 +210,7 @@ class ASOSTOrchestrator:
             f"ORIGINAL:\n{src_text[:2000]}\n\nTRANSLATION:\n{translation[:3000]}",
         )
         light = _extract_json(raw) or {}
+        trace.add("critic", "critic_light")
         score = _extract_score(light)
         if score is None:
             # fallback: أي "score" رقمي داخل النص الخام
@@ -222,6 +241,7 @@ class ASOSTOrchestrator:
                 f"ORIGINAL:\n{src_text[:2000]}\n\nTRANSLATION:\n{decision['translation'][:3000]}",
             )
             deep = _extract_json(raw_d) or {}
+            trace.add("critic", "critic_deep")
             decision["deep"] = deep
             dscore = _extract_score(deep)
             if dscore is not None:
@@ -256,6 +276,7 @@ class ASOSTOrchestrator:
             ).strip()
             if revised:
                 decision["translation"] = revised
+                trace.add("revision", "reviser")
             # إعادة التقييم: ناقد خفيف ثم عميق إن لزم
             print("[orchestrator] critic_light re-reviewing revised draft...")
             raw_l2 = self._chat(
@@ -265,6 +286,7 @@ class ASOSTOrchestrator:
                 f"TRANSLATION:\n{decision['translation'][:3000]}",
             )
             light2 = _extract_json(raw_l2) or {}
+            trace.add("critic", "critic_light")
             s2 = _extract_score(light2)
             decision["light"] = light2
             if s2 is not None:
@@ -279,6 +301,9 @@ class ASOSTOrchestrator:
             print(f"[orchestrator] light re-review score={s2} < {ACCEPT_THRESHOLD} "
                   f"→ back to critic_deep")
 
+        decision["execution_plan"] = plan.to_dict()
+        decision["tool_calls_used"] = supervisor.tool_calls
+        decision["provenance"] = trace.to_dict()
         # حفظ الحالة في الذاكرة التراكمية
         self.save_state(
             f"page_{page_num}_result",

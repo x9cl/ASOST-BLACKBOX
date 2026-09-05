@@ -23,6 +23,7 @@ ROLE_TOOLSETS = {
     "critic_deep": ["asost_critique", "asost_memory"],
     "context_keeper": ["asost_memory"],
     "book_adapter": ["asost_memory"],
+    "translation_planner": [],
 }
 
 
@@ -97,6 +98,13 @@ def build_agent(agent_name, model="stealth/ox-alpha"):
     if not isinstance(toolsets, list) or not toolsets:
         toolsets = ROLE_TOOLSETS.get(role, [])
     system_prompt = ident.get("system_prompt") or ident.get("description", "")
+    routing_policy = "\n".join(
+        f"{key}: {ident[key]}" for key in (
+            "answer_directly_when", "call_gemini_when",
+            "use_openrouter_translation_when", "max_tool_calls_per_chunk",
+            "provider_fallback_forbidden_when") if ident.get(key))
+    if routing_policy:
+        system_prompt += "\n\nMANDATORY ROUTING POLICY:\n" + routing_policy
 
     from run_agent import AIAgent  # noqa: E402
 

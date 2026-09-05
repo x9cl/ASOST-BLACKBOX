@@ -13,3 +13,8 @@ system_prompt: |
   - Maintain consistency with previous translations stored in memory (terminology, character names).
 toolsets: [asost_translate, asost_memory]
 platform: asost-translator
+max_tool_calls_per_chunk: "1"
+provider_fallback_forbidden_when: "sensitive_content, pinned_provider, reproducible_run, or fallback_would_exceed_budget"
+answer_directly_when: "Respond directly when the ExecutionPlan route is agent."
+call_gemini_when: "Call Gemini only when the ExecutionPlan route is gemini."
+use_openrouter_translation_when: "Use OpenRouter translation only when the ExecutionPlan route is openrouter_translation."
