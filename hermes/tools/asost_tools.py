@@ -63,8 +63,18 @@ def asost_translate_text(text: str, context: str = "", engine: str = "auto") -> 
     return result or ""
 
 
-def asost_memory_get(key: str) -> str:
+def asost_memory_get(key: str, book_id: str = "", namespace: str = "agent") -> str:
     """Read ``key`` from the ASOST JSON memory file. Returns '' when absent."""
+    if book_id:
+        if str(_PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(_PROJECT_ROOT))
+        from asost.config import ASOSTSettings
+        from asost.store import ASOSTStore
+
+        value = ASOSTStore(ASOSTSettings.load().state_db_path).memory_get(
+            book_id, namespace, key, ""
+        )
+        return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     try:
         data = json.loads(_MEMORY_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -75,8 +85,23 @@ def asost_memory_get(key: str) -> str:
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
-def asost_memory_set(key: str, value: str) -> str:
+def asost_memory_set(key: str, value: str, book_id: str = "",
+                     namespace: str = "agent") -> str:
     """Atomically merge ``key`` into the ASOST JSON memory file."""
+    if book_id:
+        if str(_PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(_PROJECT_ROOT))
+        from asost.config import ASOSTSettings
+        from asost.store import ASOSTStore
+
+        try:
+            stored = json.loads(value)
+        except ValueError:
+            stored = value
+        ASOSTStore(ASOSTSettings.load().state_db_path).memory_put(
+            book_id, namespace, key, stored
+        )
+        return f"saved: {book_id}/{namespace}/{key}"
     try:
         with _memory_lock:
             try:
@@ -161,11 +186,15 @@ registry.register(
             "type": "object",
             "properties": {
                 "key": {"type": "string", "description": "Memory key to read."},
+                "book_id": {"type": "string", "description": "Required book namespace."},
+                "namespace": {"type": "string", "description": "Agent role or memory class."},
             },
             "required": ["key"],
         },
     },
-    handler=lambda args, **kw: asost_memory_get(key=args.get("key", "")),
+    handler=lambda args, **kw: asost_memory_get(
+        key=args.get("key", ""), book_id=args.get("book_id", ""),
+        namespace=args.get("namespace", "agent")),
     emoji="🗂️",
 )
 
@@ -179,12 +208,15 @@ registry.register(
             "properties": {
                 "key": {"type": "string", "description": "Memory key."},
                 "value": {"type": "string", "description": "Value to store."},
+                "book_id": {"type": "string", "description": "Required book namespace."},
+                "namespace": {"type": "string", "description": "Agent role or memory class."},
             },
             "required": ["key", "value"],
         },
     },
     handler=lambda args, **kw: asost_memory_set(
-        key=args.get("key", ""), value=args.get("value", "")
+        key=args.get("key", ""), value=args.get("value", ""),
+        book_id=args.get("book_id", ""), namespace=args.get("namespace", "agent")
     ),
     emoji="💾",
 )

@@ -34,6 +34,12 @@ class ASOSTSettings:
     memory_path: Path
     gemini_max_input_chars: int
     gemini_pool_failovers: int
+    max_upload_bytes: int
+    max_agent_iterations: int
+    state_db_path: Path
+    gemini_model: str
+    gemini_timeout_seconds: int
+    max_agent_calls_per_run: int
 
     @classmethod
     def load(cls) -> "ASOSTSettings":
@@ -53,6 +59,16 @@ class ASOSTSettings:
             memory_path=memory_path,
             gemini_max_input_chars=_positive_int("ASOST_GEMINI_MAX_INPUT_CHARS", 20_000),
             gemini_pool_failovers=_positive_int("ASOST_GEMINI_POOL_FAILOVERS", 3),
+            max_upload_bytes=_positive_int("ASOST_MAX_UPLOAD_BYTES", 100 * 1024 * 1024),
+            max_agent_iterations=_positive_int("ASOST_MAX_AGENT_ITERATIONS", 12),
+            state_db_path=Path(
+                os.environ.get(
+                    "ASOST_STATE_DB", str(project_root / "asost_state.db")
+                )
+            ).expanduser().resolve(),
+            gemini_model=os.environ.get("ASOST_GEMINI_MODEL", "gemini-3.5-flash"),
+            gemini_timeout_seconds=_positive_int("ASOST_GEMINI_TIMEOUT_SECONDS", 300),
+            max_agent_calls_per_run=_positive_int("ASOST_MAX_AGENT_CALLS_PER_RUN", 1000),
         )
 
     @property

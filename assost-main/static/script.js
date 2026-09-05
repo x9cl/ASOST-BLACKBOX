@@ -5,6 +5,14 @@
 // ================================================================
 'use strict';
 
+// API credentials stay in browser session storage and are never rendered or
+// persisted by the dashboard. Deployments can set it from their authenticated
+// shell with: sessionStorage.setItem('asostApiToken', '<token>').
+function asostAuthHeaders(extra = {}) {
+    const token = sessionStorage.getItem('asostApiToken') || '';
+    return token ? { ...extra, 'X-ASOST-Token': token } : extra;
+}
+
 // ── Chart.js defaults ───────────────────────────────────────────
 Chart.defaults.color       = '#5a8a68';
 Chart.defaults.font.family = "'JetBrains Mono', monospace";
@@ -134,31 +142,48 @@ document.getElementById('log-clear-btn').addEventListener('click', () => { termB
 //  5. API CLIENT — كل شيء هنا يتحدث فعلياً مع server.py
 // ================================================================
 async function apiGet(path) {
-    const res = await fetch(path);
+    const res = await fetch(path, { headers: asostAuthHeaders() });
     if (!res.ok) throw new Error((await res.json().catch(()=>({detail:res.statusText}))).detail || res.statusText);
     return res.json();
 }
 async function apiPost(path, body) {
     const res = await fetch(path, {
         method: 'POST',
-        headers: body ? {'Content-Type':'application/json'} : undefined,
+        headers: asostAuthHeaders(body ? {'Content-Type':'application/json'} : {}),
         body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) throw new Error((await res.json().catch(()=>({detail:res.statusText}))).detail || res.statusText);
     return res.json();
 }
 async function apiDelete(path) {
-    const res = await fetch(path, { method: 'DELETE' });
+    const res = await fetch(path, { method: 'DELETE', headers: asostAuthHeaders() });
     if (!res.ok) throw new Error((await res.json().catch(()=>({detail:res.statusText}))).detail || res.statusText);
     return res.json();
 }
 async function apiUpload(file) {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const res = await fetch('/api/upload', {
+        method: 'POST', body: fd, headers: asostAuthHeaders()
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || 'فشل الرفع');
     return data;
+}
+
+async function apiDownload(path) {
+    const res = await fetch(path, { headers: asostAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'فشل التنزيل');
+    const blob = await res.blob();
+    const disposition = res.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i);
+    const name = match ? decodeURIComponent(match[1]) : 'asost-output';
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = name;
+    anchor.click();
+    URL.revokeObjectURL(url);
 }
 
 // ================================================================
@@ -343,8 +368,8 @@ function renderQueueTable() {
         } else if (f.status === 'RUNNING') {
             actions += `<button class="action-btn remove" onclick="queueRemove(${f.id})" title="Cancel"><i class="fa-solid fa-stop"></i></button>`;
         } else if (f.status === 'DONE') {
-            actions += `<a class="action-btn" href="/api/download/${f.id}/docx" title="Download DOCX"><i class="fa-solid fa-download"></i></a>`;
-            if (f.report_ready) actions += `<a class="action-btn" href="/api/download/${f.id}/report" title="HTML report" target="_blank"><i class="fa-solid fa-chart-simple"></i></a>`;
+            actions += `<button class="action-btn" data-download="/api/download/${f.id}/docx" title="Download DOCX"><i class="fa-solid fa-download"></i></button>`;
+            if (f.report_ready) actions += `<button class="action-btn" data-download="/api/download/${f.id}/report" title="HTML report"><i class="fa-solid fa-chart-simple"></i></button>`;
             actions += `<button class="action-btn remove" onclick="queueRemove(${f.id})" title="Remove"><i class="fa-solid fa-xmark"></i></button>`;
         } else {
             actions += `<button class="action-btn remove" onclick="queueRemove(${f.id})" title="Remove"><i class="fa-solid fa-xmark"></i></button>`;
@@ -386,6 +411,14 @@ function renderQueueMini() {
         list.innerHTML = '<div class="comment" style="padding:4px 2px;font-size:0.76em;">// لا توجد ملفات قيد الانتظار حالياً</div>';
     }
 }
+
+document.getElementById('queue-table-body')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-download]');
+    if (!button) return;
+    apiDownload(button.dataset.download).catch(error => {
+        asostAddLog(`فشل التنزيل: ${escapeHtml(error.message)}`, 'err');
+    });
+});
 
 window.queuePauseToggle = async (id, isPaused) => {
     try {

@@ -7,13 +7,14 @@
 Endpoints:
     POST /api/asost/translate-page  {page_num, src_text, context} → {job_id}
     GET  /api/asost/status/{job_id} → حالة المهمة + النتيجة
-    GET  /api/asost/agents          → الوكلاء الستة وهويتهم من identity.yaml
-    GET  /api/asost/memory          → محتوى asost_memory.json
+    GET  /api/asost/agents          → الوكلاء المسجلون وهوياتهم
+    GET  /api/asost/memory          → ملخص ذاكرة آمن ومصادق عليه
 """
 from __future__ import annotations
 
 import json
 import os
+import secrets
 import threading
 import uuid
 from pathlib import Path
@@ -22,6 +23,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel
 
 from .config import settings
+from .store import ASOSTStore
 
 ASOST_DIR = Path(__file__).resolve().parent
 AGENTS_DIR = ASOST_DIR / "agents"
@@ -32,17 +34,26 @@ MAX_JOBS = 50  # نحتفظ بآخر 50 مهمة فقط (تنظيف الأقدم
 
 router = APIRouter(prefix="/api/asost", tags=["asost"])
 
-_jobs: dict = {}
+_store_instance: ASOSTStore | None = None
 _lock = threading.Lock()
 
 
-def _check_write_auth(x_asost_token: str | None):
+def _store() -> ASOSTStore:
+    global _store_instance
+    with _lock:
+        if _store_instance is None:
+            _store_instance = ASOSTStore(settings.state_db_path)
+        return _store_instance
+
+
+def _check_auth(x_asost_token: str | None) -> str:
     """تحقق توكن الكتابة: ASOST_API_TOKEN من env عبر header X-ASOST-Token."""
     expected = os.environ.get("ASOST_API_TOKEN", "")
     if not expected:
         raise HTTPException(503, "الكتابة معطلة: ASOST_API_TOKEN غير مضبوط على الخادم")
-    if not x_asost_token or x_asost_token != expected:
+    if not x_asost_token or not secrets.compare_digest(x_asost_token, expected):
         raise HTTPException(401, "توكن مفقود أو غير صحيح (header X-ASOST-Token)")
+    return "operator"
 
 
 def _get_orchestrator():
@@ -58,16 +69,13 @@ class TranslateRequest(BaseModel):
 
 
 def _run_job(job_id: str, page_num: int, src_text: str, context: str):
-    with _lock:
-        _jobs[job_id]["status"] = "running"
+    _store().update_api_job(job_id, "running")
     try:
         orch = _get_orchestrator()
         result = orch.translate_page(page_num, src_text, context)
-        with _lock:
-            _jobs[job_id].update(status="done", result=result)
+        _store().update_api_job(job_id, "done", result=result)
     except Exception as exc:  # noqa: BLE001
-        with _lock:
-            _jobs[job_id].update(status="error", error=str(exc))
+        _store().update_api_job(job_id, "error", error=str(exc)[:500])
 
 
 @router.post("/translate-page")
@@ -76,7 +84,7 @@ async def translate_page(
     background: BackgroundTasks,
     x_asost_token: str | None = Header(default=None),
 ):
-    _check_write_auth(x_asost_token)
+    owner_id = _check_auth(x_asost_token)
     if req.page_num < 1:
         raise HTTPException(422, f"page_num غير صالح: {req.page_num}")
     if len(req.src_text) > MAX_SRC_TEXT_CHARS:
@@ -84,31 +92,33 @@ async def translate_page(
             422, f"src_text أكبر من الحد ({len(req.src_text)} > "
                  f"{MAX_SRC_TEXT_CHARS} حرفاً)")
     job_id = uuid.uuid4().hex[:12]
-    with _lock:
-        # تنظيف: أبقِ آخر MAX_JOBS مهمة فقط
-        while len(_jobs) >= MAX_JOBS:
-            oldest = min(_jobs, key=lambda j: _jobs[j].get("_seq", 0))
-            del _jobs[oldest]
-        job = {"status": "queued", "page_num": req.page_num,
-               "submitted_at": None, "result": None, "error": None,
-               "_seq": uuid.uuid4().time}
-        _jobs[job_id] = job
+    try:
+        _store().create_api_job(
+            job_id, owner_id,
+            {"page_num": req.page_num, "context_supplied": bool(req.context)},
+            MAX_JOBS,
+        )
+    except OverflowError as exc:
+        raise HTTPException(429, str(exc)) from exc
     background.add_task(_run_job, job_id, req.page_num, req.src_text, req.context)
     return {"job_id": job_id, "status": "queued"}
 
 
 @router.get("/status/{job_id}")
-async def job_status(job_id: str):
-    with _lock:
-        job = _jobs.get(job_id)
-        if not job:
-            raise HTTPException(404, f"job غير موجود: {job_id}")
-        return {k: v for k, v in job.items() if not k.startswith("_")}
+async def job_status(job_id: str, x_asost_token: str | None = Header(default=None)):
+    owner_id = _check_auth(x_asost_token)
+    job = _store().get_api_job(job_id, owner_id)
+    if not job:
+        raise HTTPException(404, f"job غير موجود: {job_id}")
+    return {key: job[key] for key in (
+        "job_id", "status", "result", "error", "created_at", "updated_at"
+    )}
 
 
 # ---------------------------------------------------------------- agents --
 @router.get("/agents")
-async def list_agents():
+async def list_agents(x_asost_token: str | None = Header(default=None)):
+    _check_auth(x_asost_token)
     agents = []
     for d in sorted(AGENTS_DIR.iterdir()):
         ident_path = d / "identity.yaml"
@@ -131,11 +141,15 @@ async def list_agents():
 
 # ---------------------------------------------------------------- memory --
 @router.get("/memory")
-async def memory():
+async def memory(book_id: str = "", x_asost_token: str | None = Header(default=None)):
+    _check_auth(x_asost_token)
+    if book_id:
+        return {"exists": True, "book_id": book_id,
+                "namespaces": _store().memory_summary(book_id)}
     if not MEMORY_PATH.is_file():
         return {"exists": False, "data": {}}
     try:
         data = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
     except ValueError as exc:
         raise HTTPException(500, f"ملف الذاكرة تالف: {exc}") from exc
-    return {"exists": True, "path": str(MEMORY_PATH), "data": data}
+    return {"exists": True, "keys": sorted(data), "entries": len(data)}

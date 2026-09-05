@@ -140,6 +140,11 @@ def setup_comprehensive_logging():
 
 logger, quality_logger = setup_comprehensive_logging()
 
+
+def _key_ref(key: str) -> str:
+    """Return a non-reversible identifier safe for logs and persisted metrics."""
+    return hashlib.sha256((key or "").encode("utf-8")).hexdigest()[:12]
+
 # ============= تحسين 2: نظام Rate Limiting محسن (Tokens & Requests) =============
 
 # --- تقدير التوكنز الذكي المدرك للغة ---
@@ -829,9 +834,10 @@ class _CircuitBreakerKeyError(Exception):
 class EnhancedGeminiAPI:
     """إدارة محسنة لـ Gemini API مع مفاتيح متعددة"""
     
-    def __init__(self, api_keys: List[str] = None):
+    def __init__(self, api_keys: List[str] = None, model: str = None,
+                 request_timeout: int = 300):
         # المفاتيح من متغير البيئة ASOST_GEMINI_KEYS (أو ملف .env) — لا مفاتيح في الكود
-        self.api_keys = self._load_keys_from_env()
+        self.api_keys = [] if api_keys is not None else self._load_keys_from_env()
         if False:  # dead branch — env keys are authoritative
             self.api_keys = [
            "__REMOVED_OLD_KEY__",
@@ -864,6 +870,8 @@ class EnhancedGeminiAPI:
         
         if isinstance(api_keys, list):
             self.api_keys.extend([key for key in api_keys if key not in self.api_keys])
+        self.api_keys = list(dict.fromkeys(key.strip() for key in self.api_keys if key.strip()))
+        self.last_failure: Dict[str, Any] = {}
         
         # Rate limiters لكل مفتاح - إعدادات قابلة للتهيئة من ملف خارجي
         self.rate_limiters = {
@@ -881,7 +889,12 @@ class EnhancedGeminiAPI:
         self.current_key_index = 0
 
         # إعدادات الAPI لـ Gemini 2.5 Flash
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+        self.model = model or os.environ.get("ASOST_GEMINI_MODEL", "gemini-3.5-flash")
+        self.request_timeout = request_timeout
+        self.base_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:generateContent"
+        )
         self.max_retries = 6
         self.retry_delays = [3, 6, 12, 24, 48, 96]
         
@@ -953,7 +966,7 @@ class EnhancedGeminiAPI:
                 ttl_dns_cache=300,  # cache DNS لـ 5 دقائق
                 enable_cleanup_closed=True
             )
-            timeout = aiohttp.ClientTimeout(total=300)
+            timeout = aiohttp.ClientTimeout(total=self.request_timeout)
             self.session = aiohttp.ClientSession(
                 connector=self.connector,
                 timeout=timeout
@@ -970,7 +983,7 @@ class EnhancedGeminiAPI:
         
         for key in keys_to_unblock:
             del self.blocked_keys[key]
-            logger.info(f"Unblocked key: {key[:10]}...")
+            logger.info(f"Unblocked key: {_key_ref(key)}...")
     
     def estimate_tokens(self, text: str) -> int:
         """تقدير دقيق لعدد التوكنز: يدعم tiktoken للعربية والإنجليزية."""
@@ -1144,6 +1157,7 @@ class EnhancedGeminiAPI:
                         elif response.status == 429:
                             # Rate limit ليس فشلاً حقيقياً للمفتاح — لا يفتح الدائرة
                             result_holder["rate_limited"] = True
+                            self.last_failure = {"status": 429, "reason": "rate_limit"}
                         elif response.status in [401, 403]:
                             text = await response.text()
                             raise _CircuitBreakerKeyError(response.status, text, "invalid_key")
@@ -1164,7 +1178,7 @@ class EnhancedGeminiAPI:
             try:
                 logger.info(
                     f"Sending {request_type} request (attempt {attempt+1}) "
-                    f"key={api_key[:10]}... "
+                    f"key={_key_ref(api_key)}... "
                     f"maxTokens={dynamic_max_tokens} topK={profile['topK']} topP={profile['topP']}"
                 )
                 await _api_call()
@@ -1187,27 +1201,27 @@ class EnhancedGeminiAPI:
                         if finish_reason == "MAX_TOKENS":
                             logger.warning(
                                 f"⚠️ MAX_TOKENS reached for {request_type} | "
-                                f"key={api_key[:10]}... | output truncated! "
+                                f"key={_key_ref(api_key)}... | output truncated! "
                                 f"Consider reducing chunk size below 1800 words."
                             )
                             # نُضيف علامة نهاية مقطوعة ليستطيع المُستدعي اكتشافها
                             content = content.strip() + "\n###TRUNCATED###"
                         self.key_stats[api_key].record_success(response_time)
-                        logger.info(f"Request {request_type} succeeded | key={api_key[:10]}... | time={response_time:.2f}s | finishReason={finish_reason}")
+                        logger.info(f"Request {request_type} succeeded | key={_key_ref(api_key)}... | time={response_time:.2f}s | finishReason={finish_reason}")
                         return content.strip(), response_time, api_key
                     else:
                         logger.warning(f"Unexpected response from Gemini: {result}")
                         should_alert = self.key_stats[api_key].record_failure("invalid_response")
                         if should_alert:
-                            logger.warning(f"Intelligence Alert: Key {api_key[:10]}... failed 3 consecutive times", key_status="consecutive_failures")
-                            console.print(f"[bold yellow]⚠️ Alert: Key {api_key[:10]} failed 3 consecutive times but remains in use.[/bold yellow]")
+                            logger.warning(f"Intelligence Alert: Key {_key_ref(api_key)}... failed 3 consecutive times", key_status="consecutive_failures")
+                            console.print(f"[bold yellow]⚠️ Alert: Key {_key_ref(api_key)} failed 3 consecutive times but remains in use.[/bold yellow]")
 
                 elif result_holder.get("rate_limited"):
-                    logger.warning(f"Rate limit exceeded for key {api_key[:10]}... waiting")
+                    logger.warning(f"Rate limit exceeded for key {_key_ref(api_key)}... waiting")
                     should_alert = self.key_stats[api_key].record_failure("rate_limit")
                     if should_alert:
-                        logger.warning(f"Intelligence Alert: Key {api_key[:10]}... failed 3 consecutive times (Rate Limit)", key_status="consecutive_failures")
-                        console.print(f"[bold yellow]⚠️ Alert: Key {api_key[:10]} failed 3 consecutive times due to rate limits.[/bold yellow]")
+                        logger.warning(f"Intelligence Alert: Key {_key_ref(api_key)}... failed 3 consecutive times (Rate Limit)", key_status="consecutive_failures")
+                        console.print(f"[bold yellow]⚠️ Alert: Key {_key_ref(api_key)} failed 3 consecutive times due to rate limits.[/bold yellow]")
                     # إبلاغ النظام التكيّفي
                     self.rate_limiters[api_key].record_429_error()
                     block_duration = self.retry_delays[min(attempt, len(self.retry_delays)-1)]
@@ -1218,15 +1232,16 @@ class EnhancedGeminiAPI:
                 # فشل حقيقي — سجّل وعالج حسب نوع الخطأ
                 response_time = time.time() - request_start
                 error_type = e.error_type
+                self.last_failure = {"status": e.status, "reason": error_type}
 
                 should_alert = self.key_stats[api_key].record_failure(error_type)
                 if should_alert:
                     logger.warning(
-                        f"Intelligence Alert: Key {api_key[:10]}... failed 3 consecutive times ({error_type})",
+                        f"Intelligence Alert: Key {_key_ref(api_key)}... failed 3 consecutive times ({error_type})",
                         key_status="consecutive_failures"
                     )
                     console.print(
-                        f"[bold red]⚠️ Alert: Key {api_key[:10]} is facing consecutive {error_type} errors![/bold red]"
+                        f"[bold red]⚠️ Alert: Key {_key_ref(api_key)} is facing consecutive {error_type} errors![/bold red]"
                     )
 
                 # Circuit Breaker داخلي: فتح الدائرة عند 5 إخفاقات متتالية (300 ثانية)
@@ -1234,11 +1249,11 @@ class EnhancedGeminiAPI:
                 if consec >= 5 and api_key not in self._cb_open_until:
                     self._cb_open_until[api_key] = time.time() + 300
                     logger.warning(
-                        f"[CircuitBreaker] Circuit OPEN for key {api_key[:10]} "
+                        f"[CircuitBreaker] Circuit OPEN for key {_key_ref(api_key)} "
                         f"({consec} consecutive failures). Suspended for 300s."
                     )
                     console.print(
-                        f"[bold red]⚡ Circuit Breaker OPEN: key {api_key[:10]} suspended for 300s[/bold red]"
+                        f"[bold red]⚡ Circuit Breaker OPEN: key {_key_ref(api_key)} suspended for 300s[/bold red]"
                     )
                     continue  # جرّب مفتاحاً آخر
 
@@ -1247,7 +1262,7 @@ class EnhancedGeminiAPI:
                     await asyncio.sleep(self.retry_delays[min(attempt, len(self.retry_delays)-1)])
 
                 elif error_type == "invalid_key":
-                    logger.error(f"Gemini API error {e.status} for key {api_key[:10]}: {e.message}")
+                    logger.error(f"Gemini API error {e.status} for key {_key_ref(api_key)}: {e.message}")
                     self.blocked_keys[api_key] = time.time() + 3600  # حظر لمدة ساعة
                     # لا داعي للانتظار — انتقل لمفتاح آخر
                     continue
@@ -1264,7 +1279,7 @@ class EnhancedGeminiAPI:
                 logger.error(f"Error in {request_type} request (attempt {attempt+1}): {str(e)}")
                 should_alert = self.key_stats[api_key].record_failure("exception")
                 if should_alert:
-                    logger.warning(f"Intelligence Alert: Key {api_key[:10]}... failed 3 consecutive times (Exception)", key_status="consecutive_failures")
+                    logger.warning(f"Intelligence Alert: Key {_key_ref(api_key)}... failed 3 consecutive times (Exception)", key_status="consecutive_failures")
                 await asyncio.sleep(self.retry_delays[min(attempt, len(self.retry_delays)-1)])
         
         logger.error(f"Request {request_type} failed after {self.max_retries} attempts")
@@ -1282,7 +1297,7 @@ class EnhancedGeminiAPI:
         for key in self.api_keys:
             stats = self.key_stats[key]
             key_info = {
-                'key_preview': f"{key[:10]}...",
+                'key_preview': f"{_key_ref(key)}...",
                 'health_score': stats.get_health_score(),
                 'predicted_performance': round(stats.get_predicted_performance(), 1),
                 'success_rate': stats.get_success_rate(),
@@ -4663,7 +4678,7 @@ class MasterTranslationSystem:
                 INSERT INTO translation_logs
                 (chapter_id, operation, status, message, duration, api_key_used)
                 VALUES (?, ?, ?, ?, ?, ?)
-            ''', (chapter_id, operation, status, message, duration, api_key[:15] if api_key else ""))
+            ''', (chapter_id, operation, status, message, duration, _key_ref(api_key) if api_key else ""))
 
             conn.commit()
 
@@ -4677,7 +4692,7 @@ class MasterTranslationSystem:
                 INSERT INTO intelligent_events
                 (event_type, api_key, duration, genre, tone, word_count, status, error_type)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (event_type, api_key[:15] if api_key else None, duration, genre, tone, word_count, status, error_type))
+            ''', (event_type, _key_ref(api_key) if api_key else None, duration, genre, tone, word_count, status, error_type))
             conn.commit()
 
     def analyze_and_display_intelligence(self):
@@ -4832,7 +4847,7 @@ class MasterTranslationSystem:
             if is_valid:
                 valid_count += 1
 
-            masked_key = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else key
+            masked_key = _key_ref(key)
 
             # الحصول على معدل النجاح التاريخي من KeyStatistics
             hist_rate = self.api_manager.key_stats[key].get_success_rate()

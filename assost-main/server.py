@@ -33,6 +33,7 @@ import re
 import sqlite3
 import time
 import uuid
+import secrets
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -40,7 +41,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import psutil
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -744,12 +745,33 @@ async def _run_single_job(job: Job):
 
     emit_dashboard_log(f'بدء معالجة: "{job.filename}" (job #{job.id:04d})', "INFO")
 
-    task = asyncio.ensure_future(
-        SYSTEM.process_complete_book(job.saved_path, job.output_dir)
-    )
+    if os.environ.get("ASOST_HERMES_WORKFLOW", "0") == "1":
+        from asost.config import settings as _asost_settings
+        from asost.store import ASOSTStore
+        from asost.workflow import BookSupervisor
+
+        supervisor = BookSupervisor(ASOSTStore(_asost_settings.state_db_path))
+        hermes_output = str(
+            Path(job.output_dir) / f"{Path(job.saved_path).stem}_رواية_مترجمة.docx"
+        )
+        task = asyncio.ensure_future(asyncio.to_thread(
+            supervisor.process_pdf, job.saved_path, hermes_output, "dashboard"
+        ))
+    else:
+        task = asyncio.ensure_future(
+            SYSTEM.process_complete_book(job.saved_path, job.output_dir)
+        )
     _current_task = task
     try:
-        output_path = await task
+        workflow_result = await task
+        if isinstance(workflow_result, dict):
+            if workflow_result.get("state") != "completed":
+                raise RuntimeError(
+                    f"Hermes workflow stopped in state {workflow_result.get('state')}"
+                )
+            output_path = workflow_result["output_path"]
+        else:
+            output_path = workflow_result
         job.output_path = output_path
 
         # ── المؤلّف الحتمي: PDF مطابق للأصل (صور بمواضعها وأحجامها) ──
@@ -833,7 +855,7 @@ async def _tpm_sampler_loop():
 async def lifespan(app: FastAPI):
     global SYSTEM, _worker_task
     emit_dashboard_log("ASOST Dashboard Server starting up...", "INFO")
-    SYSTEM = PF.MasterTranslationSystem(api_keys=[])  # لا مفاتيح إضافية — المصفوفة اليدوية فقط
+    SYSTEM = PF.MasterTranslationSystem(api_keys=None)  # legacy mode loads configured env keys
     psutil.cpu_percent(interval=None)  # تهيئة القراءة الأولى لـ psutil
     asyncio.create_task(run_startup_key_test(SYSTEM))
     _worker_task = asyncio.create_task(_worker_loop())
@@ -855,6 +877,23 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ASOST Dashboard", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def protect_dashboard_writes(request: Request, call_next):
+    sensitive_prefixes = (
+        "/api/upload", "/api/queue/", "/api/download/", "/api/keys",
+        "/api/logs", "/api/asost/",
+    )
+    protected = request.url.path.startswith(sensitive_prefixes)
+    if protected:
+        expected = os.environ.get("ASOST_API_TOKEN", "")
+        provided = request.headers.get("X-ASOST-Token", "")
+        if not expected:
+            return JSONResponse({"detail": "ASOST_API_TOKEN is required"}, status_code=503)
+        if not provided or not secrets.compare_digest(provided, expected):
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+    return await call_next(request)
 
 # --- ASOST-agents router (ترجمة عبر الوكلاء) ---
 import sys as _sys  # noqa: E402
@@ -946,9 +985,18 @@ async def api_upload(file: UploadFile = File(...)):
     safe_name = re.sub(r"[^\w.\-\u0600-\u06FF ]", "_", file.filename)[:150]
     saved_path = UPLOAD_DIR / f"{uuid.uuid4().hex[:10]}_{safe_name}"
 
-    content = await file.read()
-    with open(saved_path, "wb") as f:
-        f.write(content)
+    max_bytes = int(os.environ.get("ASOST_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+    written = 0
+    try:
+        with open(saved_path, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                written += len(chunk)
+                if written > max_bytes:
+                    raise HTTPException(413, f"الملف أكبر من الحد المسموح ({max_bytes} bytes)")
+                f.write(chunk)
+    except Exception:
+        saved_path.unlink(missing_ok=True)
+        raise
 
     # نستخدم دالة PF.py الأصلية نفسها للتحقق (validate_input_paths) —
     # بدون أي تعديل عليها — لضمان اتساق قواعد القبول مع محرك الترجمة تماماً.
