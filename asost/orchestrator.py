@@ -7,7 +7,10 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
-from agent_runner import build_agent, ensure_hermes_home  # noqa: F401
+try:  # package import (tests/app); retain script compatibility
+    from .agent_runner import build_agent, ensure_hermes_home  # noqa: F401
+except ImportError:  # pragma: no cover - direct ``python asost/orchestrator.py``
+    from agent_runner import build_agent, ensure_hermes_home  # noqa: F401
 
 ACCEPT_THRESHOLD = 85
 CHAT_TIMEOUT_S = 300
@@ -215,7 +218,7 @@ class ASOSTOrchestrator:
         round_scores = [score] if score is not None else []
         best = {"translation": translation, "score": score if score is not None else -1}
         rounds = 0
-        while True:
+        while decision.get("decision") != "accepted":
             raw_d = self._chat(
                 "critic_deep",
                 "قيّم هذه الترجمة أدبياً. " + JSON_ONLY_RULE + "\n\n"
