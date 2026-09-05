@@ -1,8 +1,23 @@
-"""agent_runner.py — بناء وكلاء ASOST الدائمين فوق نواة Hermes (AIAgent).
+"""بناء وكلاء ASOST بوصفهم امتداداً لـ Hermes، لا runtime بديلاً عنه.
 
-build_agent(agent_name) يقرأ identity.yaml من مجلد الوكيل ويبني AIAgent بالهوية
-والـ toolsets المحددة، مع HERMES_HOME مضبوط على /opt/data/projects/assost/hermes-home.
-لا تعديل على hermes/ إطلاقاً.
+تظل دورة الوكيل، استدعاءات النموذج، إدارة الجلسات، واكتشاف الأدوات مسؤولية
+``Hermes AIAgent``. يضيف ASOST فقط هوية كل وكيل و``enabled_toolsets``؛ أما
+الأدوات نفسها فتسجّلها :mod:`hermes.tools.asost_tools` في سجل Hermes المعتاد.
+وبذلك لا يعيد هذا الملف بناء runtime ولا ينسخ حلقة تشغيل Hermes.
+
+متغيرات البيئة ذات الصلة:
+
+* ``HERMES_HOME``: يضبطه :func:`ensure_hermes_home` على ``hermes-home`` داخل
+  المشروع كي يعزل حالة Hermes وcredential store الخاص به.
+* ``OPENROUTER_API_KEY``: اعتماد OpenRouter المباشر؛ للتشغيل المُدار يُفضّل
+  إدخاله في Hermes credential store بدلاً من ملف ``.env``.
+* ``ASOST_OR_MODEL``: يغيّر نموذج محرك OpenRouter الذي تستدعيه أداة الترجمة.
+* ``ASOST_GEMINI_KEYS``: قائمة مفاتيح Gemini مفصولة بفواصل للمسار القديم.
+* ``ASOST_API_TOKEN``: يحمي عمليات الكتابة في ASOST API.
+* ``ASOST_SKIP_KEY_TEST=1``: يتجاوز فحص مفاتيح Gemini عند إقلاع الخادم.
+
+لا تضع قيماً سرية في الشفرة أو الوثائق. راجع ``ASOST_HERMES_ROADMAP.md``
+لأوامر إضافة Gemini وOpenRouter بأمان إلى credential store.
 """
 import os
 import sys
@@ -70,6 +85,12 @@ def ensure_hermes_home():
 
 
 def get_api_key():
+    """أعد اعتماد OpenRouter المباشر، إن وجد، دون إدارة دورة الاعتماد.
+
+    الأولوية للمتغير ``OPENROUTER_API_KEY`` ثم ملف ``assost-main/.env``
+    للتوافق القديم. تدوير الاعتمادات وحالتها من مسؤولية Hermes credential
+    store؛ هذه الدالة ليست بديلاً عنه.
+    """
     key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
         envf = os.path.join(PROJECT, "assost-main", ".env")
@@ -84,11 +105,14 @@ def get_api_key():
 
 
 def build_agent(agent_name, model="stealth/ox-alpha"):
-    """بناء AIAgent لهوية وكيل ASOST من مجلده.
+    """كوّن ``Hermes AIAgent`` بهوية ASOST ومجموعات أدواتها.
 
     - يضبط HERMES_HOME
     - يقرأ identity.yaml → ephemeral_system_prompt
     - enabled_toolsets حسب الدور (أو كما في identity.yaml)
+
+    لا ينشئ هذا الغلاف runtime خاصاً بـ ASOST: التنفيذ، الجلسة، واستدعاء
+    الأدوات تبقى داخل ``AIAgent``، بينما يقتصر ASOST على التهيئة والامتداد.
     """
     ensure_hermes_home()
     ident = _load_identity(agent_name)
