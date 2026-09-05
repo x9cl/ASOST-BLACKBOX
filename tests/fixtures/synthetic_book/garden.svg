@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100" role="img" aria-labelledby="title description">
+  <title id="title">Synthetic garden illustration</title>
+  <desc id="description">An original geometric illustration of a paper bird above a fountain.</desc>
+  <rect width="160" height="100" fill="#dff4df"/>
+  <circle cx="80" cy="76" r="18" fill="#79bde8"/>
+  <path d="M52 30 L80 48 L108 30 L91 57 L80 49 L69 57 Z" fill="#fff" stroke="#31506b" stroke-width="2"/>
+  <path d="M75 76 Q80 55 85 76" fill="none" stroke="#31506b" stroke-width="3"/>
+</svg>
