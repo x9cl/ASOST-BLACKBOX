@@ -1,16 +1,24 @@
-"""ASOST tools for Hermes Agent — translation, critique, and memory.
+"""أدوات ASOST المسجّلة بوصفها امتداداً لـ Hermes Agent.
 
-Self-registering tool module: imported automatically by
-``tools/registry.py::discover_builtin_tools()`` because it contains a
-top-level ``registry.register(...)`` call (same pattern as memory_tool.py).
+يكتشف Hermes هذه الوحدة بالطريقة القياسية ثم تنفّذ استدعاءات
+``registry.register(...)`` أدناه تسجيل الأدوات ضمن toolsets مسماة. يختار
+``asost.agent_runner`` تلك الـ toolsets عند بناء ``AIAgent``. لا تعرّف الوحدة
+حلقة وكيل، أو مدير جلسات، أو runtime موازياً؛ كل ذلك يظل من مسؤولية Hermes.
 
-Placeholder implementations — ready to be filled in later:
-- asost_translate_text: delegates to the ASOST OpenRouter engine
-  (assost-main/openrouter_engine.py, model stealth/ox-alpha) via dynamic import.
-- asost_memory_get / asost_memory_set: JSON key/value store at
-  /opt/data/projects/assost/asost_memory.json
+الحالة الحالية للأدوات:
 
-(النقد يتم داخل منظومة ASOST عبر وكلاء critic_light/critic_deep — لا أداة critique هنا.)
+* ``asost_translate_text`` (**implemented**) يفوّض إلى محرك ASOST OpenRouter.
+* ``asost_memory_get`` و``asost_memory_set`` (**implemented**) يقرآن ويكتبان
+  مخزن JSON الخاص بـ ASOST.
+* اختيار ``engine`` بخلاف ``auto`` (**planned**)؛ الوسيط موثّق حالياً لكنه لا
+  يبدّل المحرك.
+
+المحرك يقرأ ``OPENROUTER_API_KEY`` و``ASOST_OR_MODEL``. أما مسار Gemini القديم
+فيقرأ ``ASOST_GEMINI_KEYS``. ينبغي حفظ الاعتمادات المُدارة في Hermes
+credential store كما هو موضح في ``ASOST_HERMES_ROADMAP.md``، ومنع إدراج قيم
+المفاتيح في الشفرة، docstrings، السجلات، أو أمثلة الأوامر.
+
+النقد يتم عبر وكيلي ``critic_light`` و``critic_deep``، وليس أداة نقد مسجّلة.
 """
 
 import asyncio
@@ -49,7 +57,11 @@ def _get_engine():
 # ---------------------------------------------------------------------------
 
 def asost_translate_text(text: str, context: str = "", engine: str = "auto") -> str:
-    """Translate ``text`` to Arabic via the ASOST OpenRouter engine."""
+    """ترجم ``text`` إلى العربية بتفويض التنفيذ لمحرك ASOST OpenRouter.
+
+    ``engine`` محجوز للتوجيه المستقبلي؛ القيمة المنفذة حالياً هي ``auto``.
+    تستدعي الأداة محركاً متخصصاً، لكنها تظل أداة داخل runtime الخاص بـ Hermes.
+    """
     api = _get_engine()
     result = asyncio.run(api.translate_text(text=text, context=context))
     return result or ""
