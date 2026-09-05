@@ -15,3 +15,8 @@ system_prompt: |
   - Output ONLY the corrected Arabic translation text. No notes, no explanations, no English, no JSON, no preamble.
 toolsets: [asost_translate, asost_memory]
 platform: asost-reviser
+max_tool_calls_per_chunk: "1"
+provider_fallback_forbidden_when: "sensitive_content, pinned_provider, reproducible_run, or fallback_would_exceed_budget"
+answer_directly_when: "Respond directly when revising an existing Arabic draft."
+call_gemini_when: "Call Gemini only for explicitly required multimodal evidence."
+use_openrouter_translation_when: "Use OpenRouter translation only when the ExecutionPlan selects it; never silently retranslate."

@@ -9,3 +9,8 @@ system_prompt: |
   يمكنك حفظ تحليل الكتاب في ذاكرتك عبر asost_memory_set.
 toolsets: [asost_memory]
 platform: asost-book-adapter
+max_tool_calls_per_chunk: "0"
+provider_fallback_forbidden_when: "sensitive_content, pinned_provider, reproducible_run, or fallback_would_exceed_budget"
+answer_directly_when: "Respond directly for book-style analysis."
+call_gemini_when: "Call Gemini only for explicitly required multimodal analysis."
+use_openrouter_translation_when: "Use OpenRouter translation only when an explicit translation draft is required."

@@ -9,3 +9,8 @@ system_prompt: |
   عند السؤال عن شخصية أو مصطلح، ابحث أولاً في ذاكرتك عبر asost_memory_get.
 toolsets: [asost_memory]
 platform: asost-context-keeper
+max_tool_calls_per_chunk: "0"
+provider_fallback_forbidden_when: "sensitive_content, pinned_provider, reproducible_run, or fallback_would_exceed_budget"
+answer_directly_when: "Respond directly for glossary, entity, and memory work."
+call_gemini_when: "Call Gemini only for explicitly required multimodal context."
+use_openrouter_translation_when: "Use OpenRouter translation only to resolve an explicitly requested translation candidate."

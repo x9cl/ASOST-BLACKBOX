@@ -11,3 +11,8 @@ system_prompt: |
   أعد إجابتك كـ JSON واحد فقط بهذا الشكل: {"score": <0-100 int>, "notes": [...]}. لا نص قبل أو بعد.
 toolsets: []
 platform: asost-critic-light
+max_tool_calls_per_chunk: "0"
+provider_fallback_forbidden_when: "sensitive_content, pinned_provider, reproducible_run, or fallback_would_exceed_budget"
+answer_directly_when: "Respond directly for textual completeness and consistency checks."
+call_gemini_when: "Call Gemini only for explicitly required multimodal checking."
+use_openrouter_translation_when: "Use OpenRouter translation only when explicitly asked for a comparison translation."
